@@ -58,7 +58,8 @@ router.post("/register", async (req, res, next) => {
     emailTokenExpire: Date.now() + 10 * 60 * 1000
   });
 
-  const verifyLink = `http://localhost:5173/verify/${emailToken}`;
+  const verifyLink = `https://earnaco.com/verify/${emailToken}`;
+
 
   // 🔥 DO NOT FAIL REGISTRATION IF EMAIL FAILS
   try {
@@ -318,9 +319,16 @@ router.put(
     }
   }
 );
-router.post("/logout",(req,res)=>{
- res.clearCookie("token");
- res.json({msg:"Logged out"});
+// LOGOUT
+router.post("/logout", (req, res) => {
+  res.clearCookie("token", {
+    domain: ".earnaco.com",
+    secure: true,
+    sameSite: "none"
+  });
+
+  res.json({ msg: "Logged out" });
 });
+
 
 module.exports = router;
