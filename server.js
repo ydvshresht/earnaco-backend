@@ -22,7 +22,9 @@ app.use(cookieParser());
 
 const allowedOrigins = [
   "https://earnaco.com",
-  "https://earnaco-frontend.vercel.app"
+  "https://www.earnaco.com",
+  "https://earnaco-frontend.vercel.app",
+  "http://localhost:5173"
 ];
 
 app.use(
@@ -40,6 +42,10 @@ app.use(
     credentials: true
   })
 );
+
+// Allow preflight
+app.options("*", cors());
+
 
 
 
