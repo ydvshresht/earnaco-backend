@@ -1,3 +1,5 @@
+const cookieParser = require("cookie-parser");
+app.use(cookieParser());
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
@@ -12,8 +14,6 @@ const hpp = require("hpp");
 const errorHandler = require("./middleware/errorHandler");
 const webhookRoutes = require("./routes/webhookRoutes");
 
-const cookieParser = require("cookie-parser");
-app.use(cookieParser());
 /**
  * 🔐 CORS CONFIG (VERY IMPORTANT)
  * Allows frontend (5173) to talk to backend (5000)
