@@ -1,5 +1,5 @@
 const cookieParser = require("cookie-parser");
-app.use(cookieParser());
+
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
@@ -19,7 +19,7 @@ const webhookRoutes = require("./routes/webhookRoutes");
  * Allows frontend (5173) to talk to backend (5000)
  */
 
-
+app.use(cookieParser());
 
 
 app.use(cors({
