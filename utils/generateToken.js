@@ -5,15 +5,15 @@ module.exports = (res, payload) => {
     expiresIn: "2h"
   });
 
-  const isProd = process.env.NODE_ENV === "production";
+ 
+ res.cookie("token", token, {
+  httpOnly: true,
+  secure: true,          // MUST be true in production
+  sameSite: "none",      // REQUIRED for cross-site
+  domain: ".earnaco.com",
+  maxAge: 2 * 60 * 60 * 1000
+});
 
-  res.cookie("token", token, {
-    httpOnly: true,
-    secure: isProd,                 // true in prod, false locally
-    sameSite: isProd ? "none" : "lax",
-    domain: isProd ? ".earnaco.com" : undefined,
-    maxAge: 2 * 60 * 60 * 1000
-  });
 
   return token;
 };
