@@ -13,7 +13,7 @@ const { apiLimiter, securityHeaders } = require("./middleware/security");
 const hpp = require("hpp");
 const errorHandler = require("./middleware/errorHandler");
 const webhookRoutes = require("./routes/webhookRoutes");
-
+app.set("trust proxy", 1); // 🔥 REQUIRED FOR RENDER
 /**
  * 🔐 CORS CONFIG (VERY IMPORTANT)
  * Allows frontend (5173) to talk to backend (5000)
