@@ -43,8 +43,6 @@ app.use(
   })
 );
 
-// SAFE preflight
-app.options("/*", cors());
 
 
 
