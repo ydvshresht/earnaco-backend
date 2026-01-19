@@ -22,7 +22,7 @@ app.use(cookieParser());
 
 
 
-aapp.use(cors({
+app.use(cors({
   origin: [
     "https://earnaco.com",
     "https://www.earnaco.com",
