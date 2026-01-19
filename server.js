@@ -20,28 +20,19 @@ app.use(cookieParser());
  */
 
 
-const allowedOrigins = [
-  "https://earnaco.com",
-  "https://www.earnaco.com",
-  "https://earnaco-frontend.vercel.app",
+
+
+aapp.use(cors({
+  origin: [
+    "https://earnaco.com",
+    "https://www.earnaco.com",
+    "https://earnaco-frontend.vercel.app",
   "http://localhost:5173"
-];
+  ],
+   methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true
-  })
-);
 
 
 

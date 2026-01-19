@@ -5,14 +5,15 @@ module.exports = (res, payload) => {
     expiresIn: "2h"
   });
 
- 
  res.cookie("token", token, {
   httpOnly: true,
-  secure: true,          // MUST be true in production
-  sameSite: "none",      // REQUIRED for cross-site
+  secure: true,
+  sameSite: "none",
   domain: ".earnaco.com",
+  path: "/",
   maxAge: 2 * 60 * 60 * 1000
 });
+
 
 
   return token;
