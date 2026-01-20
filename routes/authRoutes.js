@@ -294,6 +294,7 @@ router.put(
     try {
       const user = await User.findById(req.user.id);
 
+      // 🗑 Delete old photo
       if (req.file && user.profilePhoto) {
         const oldPath = path.join(
           __dirname,
@@ -301,8 +302,9 @@ router.put(
           user.profilePhoto
         );
 
-        if (fs.existsSync(oldPath))
+        if (fs.existsSync(oldPath)) {
           fs.unlinkSync(oldPath);
+        }
       }
 
       const { fullName, dob, mobile, pan, gender } = req.body;
@@ -314,9 +316,10 @@ router.put(
       if (["male", "female", "other"].includes(gender))
         user.gender = gender;
 
-      if (req.file)
-        user.profilePhoto =
-          `/uploads/profiles/${req.file.filename}`;
+      // 📸 SAVE ONLY RELATIVE PATH (IMPORTANT)
+      if (req.file) {
+        user.profilePhoto = `/uploads/profiles/${req.file.filename}`;
+      }
 
       await user.save();
 
@@ -326,6 +329,7 @@ router.put(
       });
 
     } catch (err) {
+      console.error(err);
       res.status(500).json({ msg: "Server error" });
     }
   }
