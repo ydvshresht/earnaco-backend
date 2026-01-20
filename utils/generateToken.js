@@ -19,8 +19,8 @@ module.exports = (res, payload) => {
     path: "/",                // IMPORTANT
     maxAge: 2 * 60 * 60 * 1000,
 
-    // domain ONLY in production
-    ...(isProd && { domain: ".earnaco.com" })
+    // // domain ONLY in production
+    // ...(isProd && { domain: ".earnaco.com" })
   });
 
   return token;
