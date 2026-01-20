@@ -137,7 +137,7 @@ router.post("/login", async (req,res,next)=>{
    userId:user.userId
   });
 
-  res.json({msg:"Login success",user});
+  res.json({msg:"Login success",token,user});
 
  }catch(err){next(err);}
 });
