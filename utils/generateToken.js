@@ -8,10 +8,9 @@ module.exports = (res, payload) => {
   const isProd = process.env.NODE_ENV === "production";
 
   res.cookie("token", token, {
-    httpOnly: true,
-    secure: isProd, // true in prod
+    httpOnly: true,       // JS can't access
+    secure: isProd,      // HTTPS only in prod
     sameSite: isProd ? "none" : "lax",
-    domain: isProd ? ".earnaco.com" : undefined,
     maxAge: 2 * 60 * 60 * 1000
   });
 
