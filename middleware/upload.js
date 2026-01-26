@@ -1,21 +1,14 @@
 const multer = require("multer");
-const path = require("path");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const cloudinary = require("../config/cloudinary");
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/profiles");
-  },
-  filename: (req, file, cb) => {
-    cb(
-      null,
-      `${req.user.id}-${Date.now()}${path.extname(file.originalname)}`
-    );
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "earnaco/profiles",
+    allowed_formats: ["jpg", "png", "jpeg", "webp"],
+    transformation: [{ width: 400, height: 400, crop: "fill" }]
   }
 });
 
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith("image/")) cb(null, true);
-  else cb(new Error("Only images allowed"), false);
-};
-
-module.exports = multer({ storage, fileFilter });
+module.exports = multer({ storage });
