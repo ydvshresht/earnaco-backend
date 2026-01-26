@@ -13,12 +13,16 @@ router.post("/", protect, async (req, res, next) => {
   try {
     const { test, prizePool, entryFee, maxSpots } = req.body;
 
-    const contest = await Contest.create({
-      test,
-      prizePool,
-      entryFee,
-      maxSpots
-    });
+  const contest = await Contest.create({
+  test,
+  prizePool,
+  entryFee,
+  maxSpots,
+  joinedUsers: [],
+  status: "active",
+  prizeDistributed: false
+});
+
 
     res.json({
       msg: "Contest created successfully",
@@ -36,11 +40,13 @@ router.post("/", protect, async (req, res, next) => {
  * ===============================
  */
 router.get("/", protect, async (req, res) => {
-  const contests = await Contest.find()
-    .populate("test", "testName");
+  const contests = await Contest.find({
+    status: { $in: ["active", "upcoming"] }
+  }).populate("test", "testName");
 
   res.json(contests);
 });
+
 
 /**
  * ===============================
