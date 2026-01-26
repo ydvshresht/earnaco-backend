@@ -17,7 +17,11 @@ cron.schedule("40 18 * * *", async () => {
     console.log("🗑 Old results deleted:", deletedResults.deletedCount);
 
      // 1️⃣ DELETE OLD CONTESTS
-    const deleted = await Contest.deleteMany({});
+    const deleted = await Contest.updateMany(
+  { status: { $in: ["active", "upcoming"] } },
+  { status: "completed" }
+);
+
     console.log("🗑 Old contests deleted:", deleted.deletedCount);
 
    // 1️⃣ Disable old tests
@@ -54,7 +58,7 @@ cron.schedule("40 18 * * *", async () => {
       entryFee: 10,
       maxSpots: 100,
       joinedUsers: [],
-      status: "upcoming",
+      status: "active",
       prizeDistributed: false
     });
 
