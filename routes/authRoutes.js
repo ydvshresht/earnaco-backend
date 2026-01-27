@@ -294,31 +294,19 @@ router.put(
     try {
       const user = await User.findById(req.user.id);
 
-      // 🗑 Delete old photo
-      if (req.file && user.profilePhoto) {
-        const oldPath = path.join(
-          __dirname,
-          "..",
-          user.profilePhoto
-        );
-
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
-      }
-
       const { fullName, dob, mobile, pan, gender } = req.body;
 
       if (fullName) user.fullName = fullName;
       if (dob) user.dob = dob;
       if (mobile) user.mobile = mobile;
       if (pan) user.pan = pan;
-      if (["male", "female", "other"].includes(gender))
+      if (["male", "female", "other"].includes(gender)) {
         user.gender = gender;
+      }
 
-      // 📸 SAVE ONLY RELATIVE PATH (IMPORTANT)
+      // ✅ CLOUDINARY IMAGE (ONLY THIS)
       if (req.file) {
-        user.profilePhoto = `/uploads/profiles/${req.file.filename}`;
+        user.profilePhoto = req.file.path; // FULL HTTPS URL
       }
 
       await user.save();
@@ -327,13 +315,13 @@ router.put(
         msg: "Profile updated successfully",
         profilePhoto: user.profilePhoto
       });
-
     } catch (err) {
-      console.error(err);
+      console.error("UPDATE PROFILE ERROR:", err);
       res.status(500).json({ msg: "Server error" });
     }
   }
 );
+
 
 /* =====================
    LOGOUT
