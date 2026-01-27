@@ -6,8 +6,7 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: "earnaco/profiles",
-    allowed_formats: ["jpg", "png", "jpeg", "webp"],
-    transformation: [{ width: 400, height: 400, crop: "fill" }]
+    allowed_formats: ["jpg", "jpeg", "png", "webp"]
   }
 });
 
