@@ -9,7 +9,7 @@ const Result = require("../models/Result");
  * 1. Close old contests
  * 2. Create a new contest
  */
-cron.schedule("40 18 * * *", async () => {
+cron.schedule("14 18 * * *", async () => {
   console.log("🕛 Daily contest reset started");
 
   try {
