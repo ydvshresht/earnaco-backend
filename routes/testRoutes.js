@@ -2,13 +2,16 @@ const express = require("express");
 const router = express.Router();
 const protect = require("../middleware/authMiddleware");
 const Test = require("../models/Test");
-
+const adminOnly = require("../middleware/adminMiddleware");
 /**
  * ===============================
  * CREATE TEST (ADMIN)
  * ===============================
  */
-router.post("/", protect, async (req, res, next) => {
+c
+
+router.post("/", protect, adminOnly, async (req, res, next) => {
+
   try {
     const { testName, duration, questions } = req.body;
 
@@ -33,15 +36,17 @@ router.post("/", protect, async (req, res, next) => {
  * GET ALL TESTS
  * ===============================
  */
-router.get("/", async (req, res, next) => {
+router.get("/", protect, async (req, res, next) => {
   try {
-    const tests = await Test.find().select("testName duration");
+    const tests = await Test.find({ isActive: true })
+      .select("testName duration");
+
     res.json(tests);
   } catch (err) {
-  next(err);
-}
-
+    next(err);
+  }
 });
+
 
 /**
  * ===============================
