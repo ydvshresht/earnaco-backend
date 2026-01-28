@@ -2,21 +2,13 @@ const cron = require("node-cron");
 const Contest = require("../models/Contest");
 const Test = require("../models/Test");
 const Question = require("../models/Question");
-const Result = require("../models/Result");
 
 cron.schedule(
-  "24 6 * * *", // 🕛 12:00 AM daily
+  "0 0 * * *", // 🕛 12:00 AM IST
   async () => {
     console.log("🕛 Daily contest reset started");
 
     try {
-      // 0️⃣ Safety check
-      const activeContest = await Contest.findOne({ status: "active" });
-      if (activeContest) {
-        console.log("⚠ Active contest already exists. Skipping.");
-        return;
-      }
-
       // 1️⃣ Close old contests
       const closed = await Contest.updateMany(
         { status: { $in: ["active", "upcoming"] } },
@@ -27,7 +19,7 @@ cron.schedule(
       // 2️⃣ Disable old daily tests
       await Test.updateMany({ isDaily: true }, { isActive: false });
 
-      // 3️⃣ Get random questions
+      // 3️⃣ Fetch random questions
       const questions = await Question.aggregate([
         { $sample: { size: 5 } }
       ]);
@@ -50,7 +42,7 @@ cron.schedule(
         isDaily: true
       });
 
-      // 5️⃣ Create contest
+      // 5️⃣ Create new contest (ONLY ONE)
       const newContest = await Contest.create({
         test: newTest._id,
         prizePool: 100,
