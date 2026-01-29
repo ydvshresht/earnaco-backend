@@ -37,12 +37,10 @@ router.post("/send-otp", async (req, res) => {
 
     let user = await User.findOne({ email });
 
-    // ❌ Already registered
     if (user && user.isVerified) {
       return res.status(400).json({ msg: "User already exists" });
     }
 
-    // ⏳ Cooldown check (60 seconds)
     if (
       user?.otpLastSent &&
       Date.now() - user.otpLastSent < 60 * 1000
@@ -54,9 +52,7 @@ router.post("/send-otp", async (req, res) => {
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    if (!user) {
-      user = new User({ email });
-    }
+    if (!user) user = new User({ email });
 
     user.otp = otp;
     user.otpExpire = Date.now() + 5 * 60 * 1000;
@@ -66,15 +62,63 @@ router.post("/send-otp", async (req, res) => {
 
     await user.save();
 
-    await sendEmail(
-      email,
-      "Your Earnaco OTP",
-      `<h2>${otp}</h2><p>Valid for 5 minutes</p>`
-    );
+    // 📧 EMAIL SEND (non-blocking)
+    try {
+      await sendEmail(
+        email,
+        "Your Earnaco OTP",
+        `<h2>${otp}</h2><p>Valid for 5 minutes</p>`
+      );
+    } catch (mailErr) {
+      console.error("EMAIL FAILED:", mailErr.message);
+    }
 
     res.json({ msg: "OTP sent successfully" });
   } catch (err) {
+    console.error("SEND OTP ERROR:", err);
     res.status(500).json({ msg: "Server error" });
+  }
+});
+
+const { OAuth2Client } = require("google-auth-library");
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+router.post("/google-login", async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+
+    const payload = ticket.getPayload();
+    const { email, name, picture } = payload;
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      user = await User.create({
+        fullName: name,
+        email,
+        profilePhoto: picture,
+        isVerified: true,
+        role: "user",
+        userId: generateUserId(),
+        wallet: 0
+      });
+    }
+
+    generateToken(res, {
+      id: user._id,
+      role: user.role,
+      userId: user.userId
+    });
+
+    res.json({ msg: "Google login success", user });
+  } catch (err) {
+    console.error("GOOGLE LOGIN ERROR:", err);
+    res.status(401).json({ msg: "Google authentication failed" });
   }
 });
 
