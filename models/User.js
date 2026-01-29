@@ -72,6 +72,11 @@ locked:{
  type:Number,
  default:0
 },
+otp: String,
+otpExpire: Date,
+otpLastSent: Date,
+otpAttempts: { type: Number, default: 0 },
+
 
     isVerified: {
   type: Boolean,
