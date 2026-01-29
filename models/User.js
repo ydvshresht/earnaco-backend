@@ -64,6 +64,11 @@ blocked:{
  type:Boolean,
  default:false
 },
+authProvider: {
+  type: String,
+  enum: ["local", "google"],
+  default: "local"
+},
 loginAttempts:{
  type:Number,
  default:0
