@@ -97,6 +97,22 @@ router.post("/google-login", async (req, res) => {
 
     let user = await User.findOne({ email });
 
+    // 🟢 CASE 1: User exists from OTP flow (upgrade user)
+    if (user && !user.isVerified) {
+      user.fullName = user.fullName || name;
+      user.profilePhoto = picture;
+      user.isVerified = true;
+      user.otp = undefined;
+      user.otpExpire = undefined;
+      user.otpAttempts = 0;
+      user.userId = user.userId || generateUserId();
+      user.role = "user";
+      user.wallet = user.wallet || 0;
+
+      await user.save();
+    }
+
+    // 🟢 CASE 2: Brand new Google user
     if (!user) {
       user = await User.create({
         fullName: name,
@@ -109,13 +125,14 @@ router.post("/google-login", async (req, res) => {
       });
     }
 
+    // 🔐 Login
     generateToken(res, {
       id: user._id,
       role: user.role,
       userId: user.userId
     });
 
-    res.json({ msg: "Google login success", user });
+    res.json({ msg: "Google signup success", user });
   } catch (err) {
     console.error("GOOGLE LOGIN ERROR:", err);
     res.status(401).json({ msg: "Google authentication failed" });
