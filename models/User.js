@@ -2,10 +2,7 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
-    fullName: {
-      type: String,
-      required: true
-    },
+    fullName: { type: String, required: true },
 
     email: {
       type: String,
@@ -16,16 +13,19 @@ const userSchema = new mongoose.Schema(
 
     password: {
       type: String,
-      required: true
+      required: function () {
+        return this.authProvider === "local";
+      }
     },
 
-    pan: {
-      type: String
+    authProvider: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local"
     },
 
-    dob: {
-      type: Date
-    },
+    pan: String,
+    dob: Date,
 
     gender: {
       type: String,
@@ -33,13 +33,9 @@ const userSchema = new mongoose.Schema(
       lowercase: true
     },
 
-    phone: {
-      type: String
-    },
+    mobile: String,
 
-    profilePhoto: {
-      type: String
-    },
+    profilePhoto: String,
 
     role: {
       type: String,
@@ -58,41 +54,35 @@ const userSchema = new mongoose.Schema(
       required: true,
       index: true
     },
-    ip: String,
-deviceId: String,
-blocked:{
- type:Boolean,
- default:false
-},
-authProvider: {
-  type: String,
-  enum: ["local", "google"],
-  default: "local"
-},
-loginAttempts:{
- type:Number,
- default:0
-},
-locked:{
- type:Number,
- default:0
-},
-otp: String,
-otpExpire: Date,
-otpLastSent: Date,
-otpAttempts: { type: Number, default: 0 },
 
+    ip: String,
+    deviceId: String,
+
+    blocked: {
+      type: Boolean,
+      default: false
+    },
+
+    loginAttempts: {
+      type: Number,
+      default: 0
+    },
+
+    otp: String,
+    otpExpire: Date,
+    otpLastSent: Date,
+    otpAttempts: { type: Number, default: 0 },
 
     isVerified: {
-  type: Boolean,
-  default: false
-},
-emailToken: String,
-emailTokenExpire: Date,
+      type: Boolean,
+      default: false
+    },
+
+    emailToken: String,
+    emailTokenExpire: Date,
 
     resetToken: String,
-resetExpire: Date
-
+    resetExpire: Date
   },
   { timestamps: true }
 );
