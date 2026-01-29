@@ -5,56 +5,52 @@ const Transaction = require("../models/Transaction");
 
 const router = express.Router();
 
-/**
- * GET BALANCE
- */
-router.get("/", protect, async (req, res, next) => {
+/* ===============================
+   GET COIN BALANCE
+=============================== */
+router.get("/", protect, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
-    res.json({ balance: user.wallet });
+    const user = await User.findById(req.user.id).select("coins");
+    res.json({ coins: user.coins });
   } catch (err) {
-    next(err);
+    console.error("WALLET ERROR:", err);
+    res.status(500).json({ msg: "Server error" });
   }
 });
 
-/**
- * GET TRANSACTIONS
- */
-router.get("/transactions", protect, async (req, res, next) => {
+/* ===============================
+   WATCH AD → +1 COIN
+=============================== */
+router.post("/watch-ad", protect, async (req, res) => {
   try {
-    const txns = await Transaction.find({ user: req.user.id })
-      .sort({ createdAt: -1 });
-
-    res.json(txns);
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * WITHDRAW REQUEST
- */
-router.post("/withdraw", protect, async (req, res, next) => {
-  try {
-    const { amount } = req.body;
-
     const user = await User.findById(req.user.id);
 
-    if (amount > user.wallet)
-      return res.status(400).json({ msg: "Insufficient balance" });
+    // 🛑 Simple daily limit (optional but recommended)
+    const lastAd = user.lastAdWatchedAt;
+    if (
+      lastAd &&
+      Date.now() - lastAd < 60 * 1000
+    ) {
+      return res
+        .status(429)
+        .json({ msg: "Please wait before watching another ad" });
+    }
 
-    user.wallet -= amount;
+    user.coins += 1;
+    user.lastAdWatchedAt = Date.now();
     await user.save();
 
     await Transaction.create({
       user: user._id,
-      amount,
-      type: "withdraw"
+      type: "coin_credit",
+      coins: 1,
+      reason: "watch_ad"
     });
 
-    res.json({ msg: "Withdraw request submitted" });
+    res.json({ msg: "+1 coin added", coins: user.coins });
   } catch (err) {
-    next(err);
+    console.error("WATCH AD ERROR:", err);
+    res.status(500).json({ msg: "Server error" });
   }
 });
 

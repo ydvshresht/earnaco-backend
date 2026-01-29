@@ -43,7 +43,7 @@ const userSchema = new mongoose.Schema(
       default: "user"
     },
 
-    wallet: {
+    coins: {
       type: Number,
       default: 0
     },
@@ -77,6 +77,20 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    referralCode: {
+  type: String,
+  unique: true
+},
+
+referredBy: {
+  type: String // referralCode of referrer
+},
+
+referralRewarded: {
+  type: Boolean,
+  default: false
+},
+
 
     emailToken: String,
     emailTokenExpire: Date,

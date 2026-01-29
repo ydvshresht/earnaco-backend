@@ -2,24 +2,76 @@ const cron = require("node-cron");
 const Contest = require("../models/Contest");
 const Test = require("../models/Test");
 const Question = require("../models/Question");
+const Result = require("../models/Result");
+const User = require("../models/User");
 
+/**
+ * 🕛 DAILY RESET – 12:00 AM IST
+ */
 cron.schedule(
-  "0 0 * * *", // 🕛 12:00 AM IST
+  "0 0 * * *",
   async () => {
-    console.log("🕛 Daily contest reset started");
+    console.log("🕛 Daily contest cron started");
 
     try {
-      // 1️⃣ Close old contests
-      const closed = await Contest.updateMany(
-        { status: { $in: ["active", "upcoming"] } },
-        { status: "completed" }
+      /* =========================
+         1️⃣ DISTRIBUTE PRIZE FOR OLD CONTEST
+      ========================= */
+      const activeContest = await Contest.findOne({
+        status: "active",
+        prizeDistributed: false
+      }).populate("test");
+
+      if (activeContest) {
+        const winnerResult = await Result.find({
+          contest: activeContest._id
+        })
+          .sort({ score: -1, timeTaken: 1 })
+          .limit(1)
+          .populate("user");
+
+        if (winnerResult.length) {
+          const winner = winnerResult[0].user;
+
+          // 🪙 CREDIT COINS
+          winner.wallet += activeContest.prizePool;
+          await winner.save();
+
+          activeContest.winner = winner._id;
+          activeContest.prizeDistributed = true;
+        }
+
+        activeContest.status = "completed";
+        await activeContest.save();
+
+        console.log("🏆 Contest closed:", activeContest._id);
+      }
+
+      /* =========================
+         2️⃣ DISABLE OLD DAILY TESTS
+      ========================= */
+      await Test.updateMany(
+        { isDaily: true },
+        { isActive: false }
       );
-      console.log("🗑 Contests closed:", closed.modifiedCount);
 
-      // 2️⃣ Disable old daily tests
-      await Test.updateMany({ isDaily: true }, { isActive: false });
+      /* =========================
+         3️⃣ CHECK IF TODAY'S CONTEST EXISTS
+      ========================= */
+      const today = new Date().toDateString();
 
-      // 3️⃣ Fetch random questions
+      const existing = await Test.findOne({
+        testName: `Daily Test - ${today}`
+      });
+
+      if (existing) {
+        console.log("⚠️ Daily test already exists, skipping creation");
+        return;
+      }
+
+      /* =========================
+         4️⃣ FETCH RANDOM QUESTIONS
+      ========================= */
       const questions = await Question.aggregate([
         { $sample: { size: 5 } }
       ]);
@@ -29,9 +81,11 @@ cron.schedule(
         return;
       }
 
-      // 4️⃣ Create new test
+      /* =========================
+         5️⃣ CREATE DAILY TEST
+      ========================= */
       const newTest = await Test.create({
-        testName: `Daily Test - ${new Date().toDateString()}`,
+        testName: `Daily Test - ${today}`,
         duration: 10,
         questions: questions.map(q => ({
           question: q.question,
@@ -42,21 +96,23 @@ cron.schedule(
         isDaily: true
       });
 
-      // 5️⃣ Create new contest (ONLY ONE)
+      /* =========================
+         6️⃣ CREATE DAILY CONTEST (COINS)
+      ========================= */
       const newContest = await Contest.create({
         test: newTest._id,
-        prizePool: 100,
-        entryFee: 10,
+        prizePool: 50,      // 🪙 coins
+        entryFee: 5,        // 🪙 coins
         maxSpots: 100,
         joinedUsers: [],
         status: "active",
         prizeDistributed: false
       });
 
-      console.log("🏆 New contest created:", newContest._id);
+      console.log("✅ New daily contest created:", newContest._id);
 
     } catch (err) {
-      console.error("❌ Daily cron error:", err);
+      console.error("❌ Daily cron failed:", err);
     }
   },
   {

@@ -4,358 +4,175 @@ const crypto = require("crypto");
 
 const sendEmail = require("../utils/sendEmail");
 const User = require("../models/User");
+const CoinTransaction = require("../models/CoinTransaction");
+
 const protect = require("../middleware/authMiddleware");
 const generateUserId = require("../utils/generateUserId");
 const upload = require("../middleware/upload");
 const generateToken = require("../utils/generateToken");
-const fraudLogger = require("../utils/fraudLogger");
+
+const { OAuth2Client } = require("google-auth-library");
 
 const router = express.Router();
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 /* =====================
    GET LOGGED USER
 ===================== */
 router.get("/me", protect, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select(
-      "fullName email role profilePhoto userId dob mobile pan gender"
-    );
-    res.json(user);
-  } catch {
-    res.status(500).json({ msg: "Server error" });
-  }
+  const user = await User.findById(req.user.id).select(
+    "fullName email role profilePhoto userId coins referralCode"
+  );
+  res.json(user);
 });
 
 /* =====================
-   SEND OTP (REGISTER)
+   APPLY REFERRAL
+===================== */
+router.post("/apply-referral", protect, async (req, res) => {
+  const { code } = req.body;
+  const user = await User.findById(req.user.id);
+
+  if (user.referralRewarded)
+    return res.status(400).json({ msg: "Referral already used" });
+
+  const referrer = await User.findOne({ referralCode: code });
+
+  if (!referrer || referrer._id.equals(user._id))
+    return res.status(400).json({ msg: "Invalid referral code" });
+
+  // 🪙 reward both
+  user.coins += 1;
+  referrer.coins += 1;
+
+  user.referredBy = code;
+  user.referralRewarded = true;
+
+  await user.save();
+  await referrer.save();
+
+  await CoinTransaction.create([
+    { user: user._id, coins: 1, type: "credit", reason: "Referral bonus" },
+    { user: referrer._id, coins: 1, type: "credit", reason: "Referral reward" }
+  ]);
+
+  res.json({ msg: "Referral applied. +1 coin added 🎉" });
+});
+
+/* =====================
+   SEND OTP
 ===================== */
 router.post("/send-otp", async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email)
-      return res.status(400).json({ msg: "Email required" });
+  const { email } = req.body;
 
-    let user = await User.findOne({ email });
+  let user = await User.findOne({ email });
 
-    if (user && user.isVerified) {
-      return res.status(400).json({ msg: "User already exists" });
-    }
+  if (user?.isVerified)
+    return res.status(400).json({ msg: "User already exists" });
 
-    if (
-      user?.otpLastSent &&
-      Date.now() - user.otpLastSent < 60 * 1000
-    ) {
-      return res.status(429).json({
-        msg: "Please wait before requesting OTP again"
-      });
-    }
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  if (!user) user = new User({ email });
 
-    if (!user) user = new User({ email });
+  user.otp = otp;
+  user.otpExpire = Date.now() + 5 * 60 * 1000;
 
-    user.otp = otp;
-    user.otpExpire = Date.now() + 5 * 60 * 1000;
-    user.otpLastSent = Date.now();
-    user.isVerified = false;
-    user.otpAttempts = 0;
+  await user.save();
 
-    await user.save();
+  await sendEmail(email, "Earnaco OTP", `<h2>${otp}</h2>`);
 
-    // 📧 EMAIL SEND (non-blocking)
-    try {
-      await sendEmail(
-        email,
-        "Your Earnaco OTP",
-        `<h2>${otp}</h2><p>Valid for 5 minutes</p>`
-      );
-    } catch (mailErr) {
-      console.error("EMAIL FAILED:", mailErr.message);
-    }
-
-    res.json({ msg: "OTP sent successfully" });
-  } catch (err) {
-    console.error("SEND OTP ERROR:", err);
-    res.status(500).json({ msg: "Server error" });
-  }
+  res.json({ msg: "OTP sent" });
 });
-
-const { OAuth2Client } = require("google-auth-library");
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
-router.post("/google-login", async (req, res) => {
-  try {
-    const { token } = req.body;
-
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID
-    });
-
-    const payload = ticket.getPayload();
-    const { email, name, picture } = payload;
-
-    let user = await User.findOne({ email });
-
-    // 🟢 CASE 1: User exists from OTP flow (upgrade user)
-    if (user && !user.isVerified) {
-      user.fullName = user.fullName || name;
-      user.profilePhoto = picture;
-      user.isVerified = true;
-      user.otp = undefined;
-      user.otpExpire = undefined;
-      user.otpAttempts = 0;
-      user.userId = user.userId || generateUserId();
-      user.role = "user";
-      user.wallet = user.wallet || 0;
-
-      await user.save();
-    }
-
-    // 🟢 CASE 2: Brand new Google user
-    if (!user) {
-      user = await User.create({
-        fullName: name,
-        email,
-        profilePhoto: picture,
-        isVerified: true,
-        role: "user",
-        userId: generateUserId(),
-        wallet: 0
-      });
-    }
-
-    // 🔐 Login
-    generateToken(res, {
-      id: user._id,
-      role: user.role,
-      userId: user.userId
-    });
-
-    res.json({ msg: "Google signup success", user });
-  } catch (err) {
-    console.error("GOOGLE LOGIN ERROR:", err);
-    res.status(401).json({ msg: "Google authentication failed" });
-  }
-});
-
 
 /* =====================
    VERIFY OTP & REGISTER
 ===================== */
 router.post("/verify-otp-register", async (req, res) => {
-  try {
-    const { fullName, email, password, otp } = req.body;
+  const { fullName, email, password, otp } = req.body;
 
-    if (!fullName || !email || !password || !otp) {
-      return res.status(400).json({ msg: "All fields required" });
-    }
+  const user = await User.findOne({ email, otp });
 
-    const user = await User.findOne({ email });
+  if (!user || user.otpExpire < Date.now())
+    return res.status(400).json({ msg: "Invalid OTP" });
 
-    if (!user) {
-      return res.status(400).json({ msg: "Invalid or expired OTP" });
-    }
+  user.fullName = fullName;
+  user.password = await bcrypt.hash(password, 10);
+  user.userId = generateUserId();
+  user.referralCode = user.userId;
+  user.isVerified = true;
+  user.coins = 5; // 🎁 signup bonus
 
-    // ⛔ OTP expired
-    if (!user.otp || user.otpExpire < Date.now()) {
-      return res.status(400).json({ msg: "OTP expired. Please resend OTP" });
-    }
+  user.otp = undefined;
+  user.otpExpire = undefined;
 
-    // 🔐 OTP attempt limit
-    user.otpAttempts = (user.otpAttempts || 0) + 1;
+  await user.save();
 
-    if (user.otpAttempts > 5) {
-      return res.status(403).json({
-        msg: "Too many invalid attempts. Please resend OTP"
-      });
-    }
-
-    // ❌ OTP mismatch
-    if (user.otp !== otp) {
-      await user.save();
-      return res.status(400).json({ msg: "Invalid OTP" });
-    }
-
-    // ✅ OTP correct → register user
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    user.fullName = fullName;
-    user.password = hashedPassword;
-    user.userId = generateUserId();
-    user.wallet = 0;
-    user.role = "user";
-    user.isVerified = true;
-
-    // cleanup
-    user.otp = undefined;
-    user.otpExpire = undefined;
-    user.otpAttempts = 0;
-
-    await user.save();
-
-    res.status(201).json({ msg: "Registered successfully" });
-  } catch (err) {
-    console.error("VERIFY OTP ERROR:", err);
-    res.status(500).json({ msg: "Server error" });
-  }
-});
-
-/* =====================
-   LOGIN
-===================== */
-router.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const ip =
-      req.headers["x-forwarded-for"] ||
-      req.socket.remoteAddress;
-
-    const device = req.headers["user-agent"];
-
-    const user = await User.findOne({ email });
-    if (!user)
-      return res.status(400).json({ msg: "Invalid credentials" });
-
-    if (user.blocked)
-      return res.status(403).json({ msg: "Account blocked" });
-
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      user.loginAttempts = (user.loginAttempts || 0) + 1;
-
-      if (user.loginAttempts >= 5) {
-        user.blocked = true;
-        await fraudLogger(
-          user._id,
-          "Brute force login",
-          "high",
-          ip,
-          device,
-          "blocked"
-        );
-      }
-
-      await user.save();
-      return res.status(400).json({ msg: "Invalid credentials" });
-    }
-
-    if (!user.isVerified)
-      return res.status(403).json({ msg: "Please register first" });
-
-    user.loginAttempts = 0;
-    await user.save();
-
-    generateToken(res, {
-      id: user._id,
-      role: user.role,
-      userId: user.userId
-    });
-
-    res.json({ msg: "Login success", user });
-  } catch {
-    res.status(500).json({ msg: "Server error" });
-  }
-});
-
-/* =====================
-   FORGOT PASSWORD
-===================== */
-router.post("/forgot-password", async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    const user = await User.findOne({ email });
-    if (!user)
-      return res.json({ msg: "If email exists, link sent" });
-
-    const token = crypto.randomBytes(32).toString("hex");
-
-    user.resetToken = token;
-    user.resetExpire = Date.now() + 10 * 60 * 1000;
-    await user.save();
-
-    const link = `${process.env.CLIENT_URL}/reset/${token}`;
-
-    await sendEmail(
-      user.email,
-      "Reset Password",
-      `<a href="${link}">${link}</a>`
-    );
-
-    res.json({ msg: "Reset link sent" });
-  } catch {
-    res.status(500).json({ msg: "Server error" });
-  }
-});
-
-/* =====================
-   RESET PASSWORD
-===================== */
-router.post("/reset/:token", async (req, res) => {
-  try {
-    const user = await User.findOne({
-      resetToken: req.params.token,
-      resetExpire: { $gt: Date.now() }
-    });
-
-    if (!user)
-      return res.status(400).json({ msg: "Invalid or expired link" });
-
-    user.password = await bcrypt.hash(req.body.password, 10);
-    user.resetToken = undefined;
-    user.resetExpire = undefined;
-
-    await user.save();
-
-    res.json({ msg: "Password updated successfully" });
-  } catch {
-    res.status(500).json({ msg: "Server error" });
-  }
-});
-
-/* =====================
-   UPDATE PROFILE
-===================== */
-router.put(
-  "/update-profile",
-  protect,
-  upload.single("profilePic"),
-  async (req, res) => {
-    try {
-      const user = await User.findById(req.user.id);
-      const { fullName, dob, mobile, pan, gender } = req.body;
-
-      if (fullName) user.fullName = fullName;
-      if (dob) user.dob = dob;
-      if (mobile) user.mobile = mobile;
-      if (pan) user.pan = pan;
-      if (["male", "female", "other"].includes(gender))
-        user.gender = gender;
-
-      if (req.file) user.profilePhoto = req.file.path;
-
-      await user.save();
-
-      res.json({ msg: "Profile updated" });
-    } catch {
-      res.status(500).json({ msg: "Server error" });
-    }
-  }
-);
-
-/* =====================
-   LOGOUT
-===================== */
-router.post("/logout", (req, res) => {
-  res.clearCookie("token", {
-    domain: ".earnaco.com",
-    secure: true,
-    sameSite: "none"
+  await CoinTransaction.create({
+    user: user._id,
+    coins: 5,
+    type: "credit",
+    reason: "Signup bonus"
   });
 
-  res.json({ msg: "Logged out" });
+  res.json({ msg: "Registered successfully" });
+});
+
+/* =====================
+   GOOGLE SIGNUP / LOGIN
+===================== */
+router.post("/google-login", async (req, res) => {
+  const { token } = req.body;
+
+  const ticket = await googleClient.verifyIdToken({
+    idToken: token,
+    audience: process.env.GOOGLE_CLIENT_ID
+  });
+
+  const { email, name, picture } = ticket.getPayload();
+
+  let user = await User.findOne({ email });
+
+  if (!user) {
+    user = await User.create({
+      fullName: name,
+      email,
+      profilePhoto: picture,
+      isVerified: true,
+      userId: generateUserId(),
+      referralCode: generateUserId(),
+      coins: 5
+    });
+
+    await CoinTransaction.create({
+      user: user._id,
+      coins: 5,
+      type: "credit",
+      reason: "Google signup bonus"
+    });
+  }
+
+  generateToken(res, { id: user._id });
+
+  res.json({ msg: "Google login success", user });
+});
+
+/* =====================
+   WATCH AD → +1 COIN
+===================== */
+router.post("/watch-ad", protect, async (req, res) => {
+  const user = await User.findById(req.user.id);
+
+  user.coins += 1;
+  await user.save();
+
+  await CoinTransaction.create({
+    user: user._id,
+    coins: 1,
+    type: "credit",
+    reason: "Watched ad"
+  });
+
+  res.json({ msg: "+1 coin added" });
 });
 
 module.exports = router;

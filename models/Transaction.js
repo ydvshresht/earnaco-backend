@@ -8,17 +8,23 @@ const transactionSchema = new mongoose.Schema(
       required: true
     },
 
-    amount: {
+     amount: {
       type: Number,
-      required: true
+      default: 0 // real money
     },
-
-    type: {
+type: {
       type: String,
-      enum: ["deposit", "withdraw", "prize", "fee"],
+      enum: [
+        "coin_credit",
+        "coin_debit",
+        "deposit",
+        "withdraw"
+      ],
       required: true
     },
-
+ reason: {
+      type: String // ad, referral, contest, prize, purchase
+    },
     status: {
       type: String,
       enum: ["pending", "success", "failed"],
@@ -28,9 +34,10 @@ const transactionSchema = new mongoose.Schema(
     razorpayOrderId: String,
     razorpayPaymentId: String,
     razorpayPayoutId: String,
-
+lastAdWatchedAt: Date,
     upi: String
   },
+  
   { timestamps: true }
 );
 

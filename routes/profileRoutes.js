@@ -1,39 +1,81 @@
 const express = require("express");
 const protect = require("../middleware/authMiddleware");
-const User = require("../models/User");
 const upload = require("../middleware/upload");
+const User = require("../models/User");
+
 const router = express.Router();
 
-router.get("/referral", protect, async (req, res) => {
-  const user = await User.findById(req.user.id);
-  res.json({ referralCode: user.referralCode });
-});
-
-/**
- * GET LOGGED-IN USER PROFILE
- */
-router.get("/me", protect, async (req, res, next) => {
+/* =========================
+   GET LOGGED-IN USER
+========================= */
+router.get("/me", protect, async (req, res) => {
   try {
-    const user = await User.findById(req.user).select("-password");
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) return res.status(404).json({ msg: "User not found" });
     res.json(user);
   } catch (err) {
-  next(err);
-}
-
+    console.error("GET ME ERROR:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
 });
 
-/**
- * UPDATE USER PROFILE
- */
+/* =========================
+   GET REFERRAL CODE
+========================= */
+router.get("/referral", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("referralCode");
+    res.json({ referralCode: user.referralCode });
+  } catch (err) {
+    console.error("REFERRAL ERROR:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
+/* =========================
+   UPDATE PROFILE DETAILS
+========================= */
+router.put("/me", protect, async (req, res) => {
+  try {
+    const { fullName, dob, gender, phone } = req.body;
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ msg: "User not found" });
+
+    if (fullName) user.fullName = fullName;
+    if (dob) user.dob = dob;
+    if (phone) user.phone = phone;
+    if (["male", "female", "other"].includes(gender))
+      user.gender = gender;
+
+    await user.save();
+
+    res.json({
+      msg: "Profile updated successfully",
+      user
+    });
+  } catch (err) {
+    console.error("UPDATE PROFILE ERROR:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
+/* =========================
+   UPDATE PROFILE PHOTO
+========================= */
 router.put(
   "/photo",
   protect,
   upload.single("photo"),
-  async (req, res, next) => {
+  async (req, res) => {
     try {
-      const user = await User.findById(req.user.id);
+      if (!req.file)
+        return res.status(400).json({ msg: "No file uploaded" });
 
-      user.profilePhoto = `/uploads/profiles/${req.file.filename}`;
+      const user = await User.findById(req.user.id);
+      if (!user) return res.status(404).json({ msg: "User not found" });
+
+      user.profilePhoto = req.file.path; // dynamic & safe
       await user.save();
 
       res.json({
@@ -41,33 +83,10 @@ router.put(
         photo: user.profilePhoto
       });
     } catch (err) {
-  next(err);
-}
-
+      console.error("PHOTO UPLOAD ERROR:", err);
+      res.status(500).json({ msg: "Server error" });
+    }
   }
 );
-router.put("/me", protect, async (req, res, next) => {
-  try {
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user,
-      {
-        fullName: req.body.fullName,
-        dob: req.body.dob,
-        gender: req.body.gender,
-        phone: req.body.phone,
-        profilePhoto: req.body.profilePhoto
-      },
-      { new: true }
-    ).select("-password");
-
-    res.json({
-      msg: "Profile updated successfully",
-      user: updatedUser
-    });
-  } catch (err) {
-  next(err);
-}
-
-});
 
 module.exports = router;
