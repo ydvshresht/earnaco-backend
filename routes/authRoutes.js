@@ -116,12 +116,43 @@ router.post("/verify-otp-register", async (req, res) => {
 
   res.json({ msg: "Registered successfully" });
 });
+/* =====================
+   EMAIL + PASSWORD LOGIN
+===================== */
+router.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  const user = await User.findOne({ email });
+  if (!user || !user.password) {
+    return res.status(400).json({ msg: "Invalid email or password" });
+  }
+
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    return res.status(400).json({ msg: "Invalid email or password" });
+  }
+
+  if (!user.isVerified) {
+    return res.status(400).json({ msg: "Account not verified" });
+  }
+
+  generateToken(res, { id: user._id });
+
+  res.json({
+    msg: "Login successful",
+    user: {
+      id: user._id,
+      email: user.email,
+      role: user.role
+    }
+  });
+});
 
 /* =====================
-   GOOGLE SIGNUP / LOGIN
+   GOOGLE LOGIN / SIGNUP
 ===================== */
 router.post("/google-login", async (req, res) => {
-  const { token } = req.body;
+  const { token, referralCode } = req.body;
 
   const ticket = await googleClient.verifyIdToken({
     idToken: token,
@@ -131,6 +162,7 @@ router.post("/google-login", async (req, res) => {
   const { email, name, picture } = ticket.getPayload();
 
   let user = await User.findOne({ email });
+  let isNewUser = false;
 
   if (!user) {
     user = await User.create({
@@ -149,11 +181,17 @@ router.post("/google-login", async (req, res) => {
       type: "credit",
       reason: "Google signup bonus"
     });
+
+    isNewUser = true;
   }
 
   generateToken(res, { id: user._id });
 
-  res.json({ msg: "Google login success", user });
+  res.json({
+    msg: isNewUser ? "Google signup success" : "Google login success",
+    user,
+    isNewUser
+  });
 });
 
 /* =====================
