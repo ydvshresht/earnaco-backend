@@ -13,10 +13,10 @@ const errorHandler = require("./middleware/errorHandler");
 const webhookRoutes = require("./routes/webhookRoutes");
 
 // 🔁 CRONS
-require("./cron/dailyReset"); // ✅ needed
+require("./cron/dailyReset");
 
 const app = express();
-app.set("trust proxy", 1); // 🔥 REQUIRED FOR RENDER
+app.set("trust proxy", 1); // REQUIRED FOR RENDER / VERCEL
 
 /* =========================
    🔐 SECURITY MIDDLEWARES
@@ -41,7 +41,6 @@ app.use(
       "https://earnaco-frontend.vercel.app",
       "http://localhost:5173"
     ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
   })
 );
@@ -49,7 +48,7 @@ app.use(
 /* =========================
    📦 BODY PARSERS
 ========================= */
-app.use(express.json()); // normal JSON
+app.use(express.json());
 
 /* =========================
    ⚡ RATE LIMITING
@@ -69,23 +68,24 @@ app.get("/ping", (req, res) => {
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 /* =========================
-   🚏 API ROUTES
+   🚏 API ROUTES (DOMAIN BASED)
 ========================= */
+
+/* AUTH & USER */
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/profile", require("./routes/profileRoutes"));
-app.use("/api/tests", require("./routes/testRoutes"));
-app.use("/api/results", require("./routes/resultRoutes"));
 app.use("/api/wallet", require("./routes/walletRoutes"));
-app.use("/api/contests", require("./routes/contestRoutes"));
 app.use("/api/transactions", require("./routes/transactionRoutes"));
 app.use("/api/support", require("./routes/supportRoutes"));
 app.use("/api/payments", require("./routes/paymentRoutes"));
 
-/* =========================
-   🛡 ADMIN ROUTES
-========================= */
+/* CORE DOMAINS */
+app.use("/api/tests", require("./routes/testRoutes"));
+app.use("/api/contests", require("./routes/contestRoutes"));
+app.use("/api/results", require("./routes/resultRoutes"));
+
+/* ADMIN (META ONLY) */
 app.use("/api/admin", require("./routes/adminRoutes"));
-app.use("/api/admin", require("./routes/adminTestContestRoutes"));
 app.use("/api/admin/analytics", require("./routes/adminAnalyticsRoutes"));
 
 /* =========================
