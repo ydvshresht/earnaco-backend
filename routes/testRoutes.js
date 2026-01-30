@@ -5,9 +5,10 @@ const adminOnly = require("../middleware/adminMiddleware");
 const Test = require("../models/Test");
 
 /* ===============================
-   CREATE TEST (ADMIN)
-   POST /api/tests
+   ADMIN ROUTES — MUST BE FIRST
 ================================ */
+
+/* CREATE TEST */
 router.post("/", protect, adminOnly, async (req, res, next) => {
   try {
     const { testName, duration } = req.body;
@@ -26,10 +27,7 @@ router.post("/", protect, adminOnly, async (req, res, next) => {
   }
 });
 
-/* ===============================
-   GET ALL TESTS (ADMIN)
-   GET /api/tests/admin
-================================ */
+/* GET ALL TESTS (ADMIN) */
 router.get("/admin", protect, adminOnly, async (req, res, next) => {
   try {
     const tests = await Test.find().sort({ createdAt: -1 });
@@ -39,10 +37,7 @@ router.get("/admin", protect, adminOnly, async (req, res, next) => {
   }
 });
 
-/* ===============================
-   GET SINGLE TEST (ADMIN – FULL)
-   GET /api/tests/admin/:testId
-================================ */
+/* GET SINGLE TEST (ADMIN – FULL) */
 router.get("/admin/:testId", protect, adminOnly, async (req, res, next) => {
   try {
     const test = await Test.findById(req.params.testId);
@@ -55,10 +50,7 @@ router.get("/admin/:testId", protect, adminOnly, async (req, res, next) => {
   }
 });
 
-/* ===============================
-   ADD QUESTION (ADMIN)
-   POST /api/tests/admin/:testId/questions
-================================ */
+/* ADD QUESTION (ADMIN) */
 router.post(
   "/admin/:testId/questions",
   protect,
@@ -66,10 +58,6 @@ router.post(
   async (req, res, next) => {
     try {
       const { question, options, correctAnswer } = req.body;
-
-      if (!question || !options || options.length !== 4) {
-        return res.status(400).json({ msg: "Invalid question data" });
-      }
 
       const test = await Test.findById(req.params.testId);
       if (!test) {
@@ -86,10 +74,7 @@ router.post(
   }
 );
 
-/* ===============================
-   DELETE QUESTION (ADMIN)
-   DELETE /api/tests/admin/:testId/questions/:index
-================================ */
+/* DELETE QUESTION (ADMIN) */
 router.delete(
   "/admin/:testId/questions/:index",
   protect,
@@ -101,12 +86,7 @@ router.delete(
         return res.status(404).json({ msg: "Test not found" });
       }
 
-      const index = Number(req.params.index);
-      if (index < 0 || index >= test.questions.length) {
-        return res.status(400).json({ msg: "Invalid question index" });
-      }
-
-      test.questions.splice(index, 1);
+      test.questions.splice(req.params.index, 1);
       await test.save();
 
       res.json({ msg: "Question deleted" });
@@ -116,10 +96,7 @@ router.delete(
   }
 );
 
-/* ===============================
-   ACTIVATE TEST (ADMIN)
-   PATCH /api/tests/admin/:testId/activate
-================================ */
+/* ACTIVATE TEST (ADMIN) */
 router.patch(
   "/admin/:testId/activate",
   protect,
@@ -146,9 +123,10 @@ router.patch(
 );
 
 /* ===============================
-   GET TEST FOR ATTEMPT (USER)
-   GET /api/tests/:testId
+   USER ROUTE — MUST BE LAST
 ================================ */
+
+/* GET TEST FOR ATTEMPT (USER) */
 router.get("/:testId", protect, async (req, res, next) => {
   try {
     const test = await Test.findById(req.params.testId);
