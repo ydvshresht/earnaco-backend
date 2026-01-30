@@ -12,11 +12,16 @@ const userSchema = new mongoose.Schema(
     },
 
     password: {
-      type: String,
-      required: function () {
-        return this.authProvider === "local";
-      }
-    },
+  type: String,
+  required: function () {
+    return !this.googleAuth; // required only if NOT Google user
+  }
+},
+googleAuth: {
+  type: Boolean,
+  default: false
+},
+
 
     authProvider: {
       type: String,

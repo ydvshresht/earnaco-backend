@@ -166,14 +166,16 @@ router.post("/google-login", async (req, res) => {
 
   if (!user) {
     user = await User.create({
-      fullName: name,
-      email,
-      profilePhoto: picture,
-      isVerified: true,
-      userId: generateUserId(),
-      referralCode: generateUserId(),
-      coins: 5
-    });
+  fullName: name,
+  email,
+  profilePhoto: picture,
+  isVerified: true,
+  googleAuth: true,     // 🔥 IMPORTANT
+  userId: generateUserId(),
+  referralCode: generateUserId(),
+  coins: 5
+});
+
 
     await CoinTransaction.create({
       user: user._id,
