@@ -79,7 +79,9 @@ router.get(
   async (req, res, next) => {
     try {
       const contest = await Contest.findById(req.params.contestId);
-
+ console.log("🔍 contest.status =", contest?.status);
+  console.log("🔍 joinedUsers =", contest?.joinedUsers);
+  console.log("🔍 user =", req.user.id);
       if (!contest) {
         return res.status(404).json({ msg: "Contest not found" });
       }
