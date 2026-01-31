@@ -212,6 +212,7 @@ router.delete(
 router.post("/join/:contestId", protect, async (req, res, next) => {
   try {
     const contest = await Contest.findById(req.params.contestId);
+
     if (!contest || contest.status !== "live") {
       return res.status(400).json({ msg: "Contest unavailable" });
     }
@@ -224,39 +225,41 @@ router.post("/join/:contestId", protect, async (req, res, next) => {
       return res.status(400).json({ msg: "Contest full" });
     }
 
+    // 🪙 Deduct coins
     const user = await User.findOneAndUpdate(
       {
         _id: req.user.id,
-        wallet: { $gte: contest.entryFee }
+        coins: { $gte: contest.entryFee }
       },
-      { $inc: { wallet: -contest.entryFee } },
+      { $inc: { coins: -contest.entryFee } },
       { new: true }
     );
 
     if (!user) {
-      return res.status(400).json({ msg: "Insufficient balance" });
+      return res.status(400).json({ msg: "Insufficient coins" });
     }
 
-    const company = await User.findOneAndUpdate(
-      { role: "admin" },
-      { $inc: { wallet: contest.entryFee } }
-    );
-
-    if (!company) {
-      return res.status(500).json({ msg: "Company wallet missing" });
-    }
+    // ✅ Record coin transaction (ADD HERE)
+    await CoinTransaction.create({
+      user: user._id,
+      coins: contest.entryFee,
+      type: "debit",
+      reason: "Contest entry"
+    });
 
     contest.joinedUsers.push(user._id);
     await contest.save();
 
     res.json({
       msg: "Joined successfully",
-      balance: user.wallet
+      coins: user.coins
     });
   } catch (err) {
     next(err);
   }
 });
+
+
 
 
 /* ===============================
