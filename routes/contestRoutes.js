@@ -104,31 +104,6 @@ router.get(
   }
 );
 
-/* ===============================
-   GET SINGLE CONTEST (USER)
-================================ */
-router.get(
-  "/:contestId",
-  protect,
-  async (req, res, next) => {
-    try {
-      const contest = await Contest.findById(req.params.contestId)
-        .populate("test"); // full test needed for ContestPage
-
-      if (!contest) {
-        return res.status(404).json({ msg: "Contest not found" });
-      }
-
-      if (contest.status !== "live") {
-        return res.status(403).json({ msg: "Contest not live" });
-      }
-
-      res.json(contest);
-    } catch (err) {
-      next(err);
-    }
-  }
-);
 
 /* ===============================
    GET CONTESTS (ADMIN)
@@ -284,4 +259,29 @@ router.post("/join/:contestId", protect, async (req, res, next) => {
 });
 
 
+/* ===============================
+   GET SINGLE CONTEST (USER)
+================================ */
+router.get(
+  "/:contestId",
+  protect,
+  async (req, res, next) => {
+    try {
+      const contest = await Contest.findById(req.params.contestId)
+        .populate("test"); // full test needed for ContestPage
+
+      if (!contest) {
+        return res.status(404).json({ msg: "Contest not found" });
+      }
+
+      if (contest.status !== "live") {
+        return res.status(403).json({ msg: "Contest not live" });
+      }
+
+      res.json(contest);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 module.exports = router;
