@@ -40,12 +40,14 @@ router.post("/watch-ad", protect, async (req, res) => {
     user.lastAdWatchedAt = Date.now();
     await user.save();
 
-    await Transaction.create({
-      user: user._id,
-      type: "coin_credit",
-      coins: 1,
-      reason: "watch_ad"
-    });
+   await Transaction.create({
+  user: user._id,
+  type: "credit",          // ✅ standard
+  coins: 1,
+  status: "success",       // ✅ explicit
+  reason: "Watched ad"     // ✅ human readable
+});
+
 
     res.json({ msg: "+1 coin added", coins: user.coins });
   } catch (err) {
