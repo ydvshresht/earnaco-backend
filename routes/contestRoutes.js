@@ -79,9 +79,7 @@ router.get(
   async (req, res, next) => {
     try {
       const contest = await Contest.findById(req.params.contestId);
- console.log("🔍 contest.status =", contest?.status);
-  console.log("🔍 joinedUsers =", contest?.joinedUsers);
-  console.log("🔍 user =", req.user.id);
+ 
       if (!contest) {
         return res.status(404).json({ msg: "Contest not found" });
       }
@@ -239,37 +237,51 @@ router.delete(
 router.post("/join/:contestId", protect, async (req, res, next) => {
   try {
     const contest = await Contest.findById(req.params.contestId);
-    const user = await User.findById(req.user.id);
-    const company = await User.findOne({ role: "admin" });
-
     if (!contest || contest.status !== "live") {
       return res.status(400).json({ msg: "Contest unavailable" });
     }
 
-    if (contest.joinedUsers.includes(user._id)) {
+    if (contest.joinedUsers.includes(req.user.id)) {
       return res.status(400).json({ msg: "Already joined" });
     }
-    if (contest.joinedUsers.length >= contest.maxSpots) {
-  return res.status(400).json({ msg: "Contest is full" });
-}
 
-    if (user.wallet < contest.entryFee) {
+    if (contest.joinedUsers.length >= contest.maxSpots) {
+      return res.status(400).json({ msg: "Contest full" });
+    }
+
+    const user = await User.findOneAndUpdate(
+      {
+        _id: req.user.id,
+        wallet: { $gte: contest.entryFee }
+      },
+      { $inc: { wallet: -contest.entryFee } },
+      { new: true }
+    );
+
+    if (!user) {
       return res.status(400).json({ msg: "Insufficient balance" });
     }
 
-    user.wallet -= contest.entryFee;
-    company.wallet += contest.entryFee;
+    const company = await User.findOneAndUpdate(
+      { role: "admin" },
+      { $inc: { wallet: contest.entryFee } }
+    );
+
+    if (!company) {
+      return res.status(500).json({ msg: "Company wallet missing" });
+    }
 
     contest.joinedUsers.push(user._id);
-
-    await user.save();
-    await company.save();
     await contest.save();
 
-    res.json({ msg: "Joined successfully", balance: user.wallet });
+    res.json({
+      msg: "Joined successfully",
+      balance: user.wallet
+    });
   } catch (err) {
     next(err);
   }
 });
+
 
 module.exports = router;
