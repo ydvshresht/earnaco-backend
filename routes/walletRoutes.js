@@ -24,36 +24,49 @@ router.get("/", protect, async (req, res) => {
 router.post("/watch-ad", protect, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-
-    // 🛑 Simple daily limit (optional but recommended)
-    const lastAd = user.lastAdWatchedAt;
-    if (
-      lastAd &&
-      Date.now() - lastAd < 60 * 1000
-    ) {
-      return res
-        .status(429)
-        .json({ msg: "Please wait before watching another ad" });
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
     }
 
+    const now = new Date();
+
+    if (user.lastAdWatchedAt) {
+      const last = new Date(user.lastAdWatchedAt);
+
+      const isSameDay =
+        last.getFullYear() === now.getFullYear() &&
+        last.getMonth() === now.getMonth() &&
+        last.getDate() === now.getDate();
+
+      if (isSameDay) {
+        return res
+          .status(429)
+          .json({ msg: "You can watch only 1 ad per day" });
+      }
+    }
+
+    // ✅ Give coin
     user.coins += 1;
-    user.lastAdWatchedAt = Date.now();
+    user.lastAdWatchedAt = now;
     await user.save();
 
-   await Transaction.create({
-  user: user._id,
-  type: "credit",          // ✅ standard
-  coins: 1,
-  status: "success",       // ✅ explicit
-  reason: "Watched ad"     // ✅ human readable
-});
+    await Transaction.create({
+      user: user._id,
+      type: "credit",
+      coins: 1,
+      status: "success",
+      reason: "Watched ad"
+    });
 
-
-    res.json({ msg: "+1 coin added", coins: user.coins });
+    res.json({
+      msg: "+1 coin added",
+      coins: user.coins
+    });
   } catch (err) {
     console.error("WATCH AD ERROR:", err);
     res.status(500).json({ msg: "Server error" });
   }
 });
+
 
 module.exports = router;

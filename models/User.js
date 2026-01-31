@@ -56,6 +56,10 @@ signupBonusGiven: {
       type: Number,
       default: 0
     },
+lastAdWatchedAt: {
+  type: Date,
+  default: null
+},
 
     userId: {
       type: String,
