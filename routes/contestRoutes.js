@@ -5,6 +5,7 @@ const adminOnly = require("../middleware/adminMiddleware");
 const Contest = require("../models/Contest");
 const Test = require("../models/Test");
 const User = require("../models/User");
+const CoinTransaction = require("../models/CoinTransaction");
 
 /* ===============================
    CREATE CONTEST (WIZARD STEP 3)
