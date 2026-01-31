@@ -7,7 +7,7 @@ const Test = require("../models/Test");
 const User = require("../models/User");
 
 /* ===============================
-   CREATE CONTEST (ADMIN)
+   CREATE CONTEST (WIZARD STEP 3)
 ================================ */
 router.post("/", protect, adminOnly, async (req, res, next) => {
   try {
@@ -15,13 +15,8 @@ router.post("/", protect, adminOnly, async (req, res, next) => {
 
     const testDoc = await Test.findById(test);
     if (!testDoc || testDoc.questions.length === 0) {
-      return res.status(400).json({
-        msg: "Invalid test or no questions"
-      });
+      return res.status(400).json({ msg: "Invalid test" });
     }
-
-    testDoc.isActive = true;
-    await testDoc.save();
 
     const contest = await Contest.create({
       test,
@@ -29,24 +24,11 @@ router.post("/", protect, adminOnly, async (req, res, next) => {
       entryFee,
       maxSpots,
       joinedUsers: [],
-      status: "active",
+      status: "draft",
       prizeDistributed: false
     });
 
     res.json({ contest });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/* ===============================
-   GET CONTESTS (USER)
-================================ */
-router.get("/", protect, async (req, res, next) => {
-  try {
-    const contests = await Contest.find({ status: "active" })
-      .populate("test", "testName duration");
-    res.json(contests);
   } catch (err) {
     next(err);
   }
@@ -59,11 +41,76 @@ router.get("/admin", protect, adminOnly, async (req, res, next) => {
   try {
     const contests = await Contest.find()
       .populate("test", "testName");
+
     res.json(contests);
   } catch (err) {
     next(err);
   }
 });
+
+/* ===============================
+   GET CONTEST FOR EDIT WIZARD
+================================ */
+router.get(
+  "/admin/:contestId/edit",
+  protect,
+  adminOnly,
+  async (req, res) => {
+    const contest = await Contest.findById(req.params.contestId)
+      .populate("test");
+
+    if (!contest) {
+      return res.status(404).json({ msg: "Contest not found" });
+    }
+
+    res.json({
+      contest,
+      editable: contest.joinedUsers.length === 0
+    });
+  }
+);
+
+/* ===============================
+   UPDATE CONTEST SETTINGS
+================================ */
+router.patch(
+  "/admin/:contestId",
+  protect,
+  adminOnly,
+  async (req, res) => {
+    const contest = await Contest.findById(req.params.contestId);
+    if (!contest) return res.status(404).json({ msg: "Contest not found" });
+
+    const { prizePool, entryFee, maxSpots } = req.body;
+
+    contest.prizePool = prizePool;
+    contest.entryFee = entryFee;
+    contest.maxSpots = maxSpots;
+
+    await contest.save();
+    res.json({ msg: "Contest updated" });
+  }
+);
+
+/* ===============================
+   SWITCH TEST (EDIT WIZARD)
+================================ */
+router.patch(
+  "/admin/:contestId/switch-test",
+  protect,
+  adminOnly,
+  async (req, res) => {
+    const { testId } = req.body;
+
+    const contest = await Contest.findById(req.params.contestId);
+    if (!contest) return res.status(404).json({ msg: "Contest not found" });
+
+    contest.test = testId;
+    await contest.save();
+
+    res.json({ msg: "Contest test switched" });
+  }
+);
 
 /* ===============================
    DELETE CONTEST (ADMIN)
@@ -72,13 +119,16 @@ router.delete(
   "/admin/:contestId",
   protect,
   adminOnly,
-  async (req, res, next) => {
-    try {
-      await Contest.findByIdAndDelete(req.params.contestId);
-      res.json({ msg: "Contest deleted" });
-    } catch (err) {
-      next(err);
+  async (req, res) => {
+    const contest = await Contest.findById(req.params.contestId);
+    if (!contest) return res.status(404).json({ msg: "Contest not found" });
+
+    if (contest.joinedUsers.length > 0) {
+      return res.status(400).json({ msg: "Contest has entries" });
     }
+
+    await contest.deleteOne();
+    res.json({ msg: "Contest deleted" });
   }
 );
 
@@ -91,44 +141,28 @@ router.post("/join/:contestId", protect, async (req, res, next) => {
     const user = await User.findById(req.user.id);
     const company = await User.findOne({ role: "admin" });
 
-    if (!contest || contest.status !== "active")
+    if (!contest || contest.status !== "live") {
       return res.status(400).json({ msg: "Contest unavailable" });
+    }
 
-    if (contest.joinedUsers.includes(user._id))
+    if (contest.joinedUsers.includes(user._id)) {
       return res.status(400).json({ msg: "Already joined" });
+    }
 
-    if (user.wallet < contest.entryFee)
+    if (user.wallet < contest.entryFee) {
       return res.status(400).json({ msg: "Insufficient balance" });
+    }
 
     user.wallet -= contest.entryFee;
     company.wallet += contest.entryFee;
 
+    contest.joinedUsers.push(user._id);
+
     await user.save();
     await company.save();
-
-    contest.joinedUsers.push(user._id);
     await contest.save();
 
     res.json({ msg: "Joined successfully", balance: user.wallet });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/* ===============================
-   CAN START TEST
-================================ */
-router.get("/can-start/:contestId", protect, async (req, res, next) => {
-  try {
-    const contest = await Contest.findById(req.params.contestId);
-    if (!contest)
-      return res.status(404).json({ msg: "Contest not found" });
-
-    const joined = contest.joinedUsers.includes(req.user.id);
-    if (!joined)
-      return res.status(403).json({ msg: "Not joined" });
-
-    res.json({ allowed: true });
   } catch (err) {
     next(err);
   }

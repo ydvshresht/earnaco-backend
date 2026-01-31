@@ -29,10 +29,15 @@ const contestSchema = new mongoose.Schema({
     }
   ],
 
-  status: {
+ status: {
     type: String,
-    enum: ["upcoming", "active", "completed", "archived"],
-    default: "upcoming"
+    enum: ["draft", "live", "completed"],
+    default: "draft"
+  },
+
+  entriesCount: {
+    type: Number,
+    default: 0
   },
   prizeDistributed: {
   type: Boolean,

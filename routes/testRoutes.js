@@ -31,21 +31,6 @@ router.post("/", protect, adminOnly, async (req, res, next) => {
 });
 
 /* ===============================
-   GET ALL TESTS (ADMIN)
-   (Optional – mostly for debug)
-================================ */
-router.get("/admin", protect, adminOnly, async (req, res, next) => {
-  try {
-    const tests = await Test.find().select(
-      "testName duration isActive isDraft"
-    );
-    res.json(tests);
-  } catch (err) {
-    next(err);
-  }
-});
-
-/* ===============================
    GET SINGLE TEST (ADMIN)
 ================================ */
 router.get("/admin/:testId", protect, adminOnly, async (req, res, next) => {
@@ -77,9 +62,7 @@ router.post(
       if (!test) return res.status(404).json({ msg: "Test not found" });
 
       if (!test.isDraft) {
-        return res
-          .status(400)
-          .json({ msg: "Cannot modify finalized test" });
+        return res.status(400).json({ msg: "Test already finalized" });
       }
 
       test.questions.push({ question, options, correctAnswer });
@@ -105,9 +88,7 @@ router.delete(
       if (!test) return res.status(404).json({ msg: "Test not found" });
 
       if (!test.isDraft) {
-        return res
-          .status(400)
-          .json({ msg: "Cannot modify finalized test" });
+        return res.status(400).json({ msg: "Test already finalized" });
       }
 
       test.questions.splice(req.params.index, 1);
@@ -121,8 +102,32 @@ router.delete(
 );
 
 /* ===============================
+   CLONE TEST (EDIT WIZARD)
+================================ */
+router.post(
+  "/admin/:testId/clone",
+  protect,
+  adminOnly,
+  async (req, res) => {
+    const oldTest = await Test.findById(req.params.testId);
+    if (!oldTest) return res.status(404).json({ msg: "Test not found" });
+
+    const clonedTest = await Test.create({
+      testName: oldTest.testName + " (Edited)",
+      duration: oldTest.duration,
+      questions: oldTest.questions,
+      isActive: false,
+      isDaily: false,
+      isDraft: true
+    });
+
+    res.json({ test: clonedTest });
+  }
+);
+
+/* ===============================
    FINALIZE + ACTIVATE TEST
-   (WIZARD STEP 3 – AFTER CONTEST)
+   (WIZARD FINAL STEP)
 ================================ */
 router.patch(
   "/admin/:testId/finalize",
@@ -159,15 +164,13 @@ router.get("/:testId", protect, async (req, res, next) => {
       return res.status(404).json({ msg: "Test unavailable" });
     }
 
-    const safeQuestions = test.questions.map(q => ({
-      question: q.question,
-      options: q.options
-    }));
-
     res.json({
       testName: test.testName,
       duration: test.duration,
-      questions: safeQuestions
+      questions: test.questions.map(q => ({
+        question: q.question,
+        options: q.options
+      }))
     });
   } catch (err) {
     next(err);
