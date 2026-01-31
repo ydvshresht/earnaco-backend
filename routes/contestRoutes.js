@@ -70,6 +70,38 @@ router.patch(
     res.json({ msg: "Contest is live" });
   }
 );
+/* ===============================
+   CAN START TEST (USER)
+================================ */
+router.get(
+  "/can-start/:contestId",
+  protect,
+  async (req, res, next) => {
+    try {
+      const contest = await Contest.findById(req.params.contestId);
+
+      if (!contest) {
+        return res.status(404).json({ msg: "Contest not found" });
+      }
+
+      if (contest.status !== "live") {
+        return res.status(403).json({ msg: "Contest not live" });
+      }
+
+      const joined = contest.joinedUsers.some(
+        (id) => id.toString() === req.user.id
+      );
+
+      if (!joined) {
+        return res.status(403).json({ msg: "Not joined" });
+      }
+
+      res.json({ allowed: true });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 /* ===============================
    GET SINGLE CONTEST (USER)
