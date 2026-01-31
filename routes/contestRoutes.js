@@ -90,9 +90,10 @@ router.get(
         return res.status(403).json({ msg: "Contest not live" });
       }
 
-      const joined = contest.joinedUsers.some(
-        (id) => id.toString() === req.user.id
-      );
+     const joined = contest.joinedUsers.some(
+  (id) => id.toString() === req.user.id.toString()
+);
+
 
       if (!joined) {
         return res.status(403).json({ msg: "Not joined" });
