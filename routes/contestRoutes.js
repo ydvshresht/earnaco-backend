@@ -33,6 +33,44 @@ router.post("/", protect, adminOnly, async (req, res, next) => {
     next(err);
   }
 });
+/* ===============================
+   GET LIVE CONTESTS (USER)
+================================ */
+router.get("/", protect, async (req, res, next) => {
+  try {
+    const contests = await Contest.find({ status: "live" })
+      .populate("test", "testName duration");
+
+    res.json(contests);
+  } catch (err) {
+    next(err);
+  }
+});
+router.patch(
+  "/admin/:contestId/live",
+  protect,
+  adminOnly,
+  async (req, res) => {
+    const contest = await Contest.findById(req.params.contestId).populate("test");
+    if (!contest) {
+      return res.status(404).json({ msg: "Contest not found" });
+    }
+
+    if (contest.status !== "draft") {
+      return res.status(400).json({ msg: "Contest already live" });
+    }
+
+    if (!contest.test || contest.test.isDraft) {
+      return res.status(400).json({ msg: "Test not finalized" });
+    }
+
+    contest.status = "live";
+    await contest.save();
+
+    res.json({ msg: "Contest is live" });
+  }
+);
+
 
 /* ===============================
    GET CONTESTS (ADMIN)
@@ -126,6 +164,9 @@ router.delete(
     if (contest.joinedUsers.length > 0) {
       return res.status(400).json({ msg: "Contest has entries" });
     }
+    if (contest.status === "live") {
+  return res.status(400).json({ msg: "Cannot delete live contest" });
+}
 
     await contest.deleteOne();
     res.json({ msg: "Contest deleted" });
@@ -148,6 +189,9 @@ router.post("/join/:contestId", protect, async (req, res, next) => {
     if (contest.joinedUsers.includes(user._id)) {
       return res.status(400).json({ msg: "Already joined" });
     }
+    if (contest.joinedUsers.length >= contest.maxSpots) {
+  return res.status(400).json({ msg: "Contest is full" });
+}
 
     if (user.wallet < contest.entryFee) {
       return res.status(400).json({ msg: "Insufficient balance" });
