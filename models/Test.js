@@ -11,6 +11,11 @@ const testSchema = new mongoose.Schema(
         correctAnswer: Number
       }
     ],
+    isDraft: {
+  type: Boolean,
+  default: true
+},
+
     isActive: {
       type: Boolean,
       default: true
