@@ -22,6 +22,10 @@ googleAuth: {
   default: false
 },
 
+signupBonusGiven: {
+  type: Boolean,
+  default: false
+},
 
     authProvider: {
       type: String,

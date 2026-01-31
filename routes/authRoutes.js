@@ -92,30 +92,41 @@ router.post("/verify-otp-register", async (req, res) => {
 
   const user = await User.findOne({ email, otp });
 
-  if (!user || user.otpExpire < Date.now())
+  if (!user)
     return res.status(400).json({ msg: "Invalid OTP" });
+
+  if (user.otpExpire < Date.now())
+    return res.status(400).json({ msg: "OTP expired" });
+
+  if (user.isVerified)
+    return res.status(400).json({ msg: "User already registered" });
 
   user.fullName = fullName;
   user.password = await bcrypt.hash(password, 10);
   user.userId = generateUserId();
   user.referralCode = user.userId;
   user.isVerified = true;
-  user.coins = 5; // 🎁 signup bonus
+
+  // 🪙 GIVE BONUS ONLY ONCE
+  if (!user.coins || user.coins === 0) {
+    user.coins = 5;
+
+    await CoinTransaction.create({
+      user: user._id,
+      coins: 5,
+      type: "credit",
+      reason: "Signup bonus"
+    });
+  }
 
   user.otp = undefined;
   user.otpExpire = undefined;
 
   await user.save();
 
-  await CoinTransaction.create({
-    user: user._id,
-    coins: 5,
-    type: "credit",
-    reason: "Signup bonus"
-  });
-
   res.json({ msg: "Registered successfully" });
 });
+
 /* =====================
    EMAIL + PASSWORD LOGIN
 ===================== */
