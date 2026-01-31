@@ -34,6 +34,10 @@ const contestSchema = new mongoose.Schema({
     enum: ["draft", "live", "completed"],
     default: "draft"
   },
+isDaily: {
+  type: Boolean,
+  default: false
+},
 
   entriesCount: {
     type: Number,

@@ -17,10 +17,12 @@ cron.schedule(
       /* =========================
          1️⃣ DISTRIBUTE PRIZE FOR OLD CONTEST
       ========================= */
-      const activeContest = await Contest.findOne({
-        status: "active",
-        prizeDistributed: false
-      }).populate("test");
+     const activeContest = await Contest.findOne({
+  status: "live",
+  isDaily: true,
+  prizeDistributed: false
+}).populate("test");
+
 
       if (activeContest) {
         const winnerResult = await Result.find({
@@ -100,14 +102,16 @@ cron.schedule(
          6️⃣ CREATE DAILY CONTEST (COINS)
       ========================= */
       const newContest = await Contest.create({
-        test: newTest._id,
-        prizePool: 50,      // 🪙 coins
-        entryFee: 5,        // 🪙 coins
-        maxSpots: 100,
-        joinedUsers: [],
-        status: "active",
-        prizeDistributed: false
-      });
+  test: newTest._id,
+  prizePool: 50,
+  entryFee: 5,
+  maxSpots: 100,
+  joinedUsers: [],
+  status: "live",          // ✅ SAME AS MANUAL
+  isDaily: true,           // 🔥 KEY DIFFERENCE
+  prizeDistributed: false
+});
+
 
       console.log("✅ New daily contest created:", newContest._id);
 
