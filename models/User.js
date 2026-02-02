@@ -8,9 +8,24 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      lowercase: true,
-      index: true
+      lowercase: true
     },
+
+    password: {
+  type: String,
+  required: function () {
+    return !this.googleAuth; // required only if NOT Google user
+  }
+},
+googleAuth: {
+  type: Boolean,
+  default: false
+},
+
+signupBonusGiven: {
+  type: Boolean,
+  default: false
+},
 
     authProvider: {
       type: String,
@@ -18,24 +33,7 @@ const userSchema = new mongoose.Schema(
       default: "local"
     },
 
-    password: {
-      type: String,
-      required: function () {
-        return this.authProvider === "local";
-      }
-    },
-
-    signupBonusGiven: {
-      type: Boolean,
-      default: false
-    },
-
-    pan: {
-      type: String,
-      uppercase: true,
-      index: true
-    },
-
+    pan: String,
     dob: Date,
 
     gender: {
@@ -44,14 +42,9 @@ const userSchema = new mongoose.Schema(
       lowercase: true
     },
 
-    mobile: {
-      type: String
-    },
+    mobile: number,
 
-    profilePhoto: {
-      type: String,
-      default: ""
-    },
+    profilePhoto: String,
 
     role: {
       type: String,
@@ -63,11 +56,10 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
-
-    lastAdWatchedAt: {
-      type: Date,
-      default: null
-    },
+lastAdWatchedAt: {
+  type: Date,
+  default: null
+},
 
     userId: {
       type: String,
@@ -84,14 +76,10 @@ const userSchema = new mongoose.Schema(
       default: false
     },
 
-    blockedReason: String,
-
     loginAttempts: {
       type: Number,
       default: 0
     },
-
-    lockUntil: Date,
 
     otp: String,
     otpExpire: Date,
@@ -102,21 +90,20 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
-
     referralCode: {
-      type: String,
-      unique: true,
-      sparse: true
-    },
+  type: String,
+  unique: true
+},
 
-    referredBy: {
-      type: String
-    },
+referredBy: {
+  type: String // referralCode of referrer
+},
 
-    referralRewarded: {
-      type: Boolean,
-      default: false
-    },
+referralRewarded: {
+  type: Boolean,
+  default: false
+},
+
 
     emailToken: String,
     emailTokenExpire: Date,
