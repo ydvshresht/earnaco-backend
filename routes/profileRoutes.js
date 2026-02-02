@@ -75,16 +75,19 @@ router.put(
         return res.status(404).json({ msg: "User not found" });
 
       // delete old photo if exists
-      if (user.profilePhoto) {
-        const oldPath = path.join(
-          __dirname,
-          "..",
-          user.profilePhoto
-        );
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
-      }
+      if (user.profilePhoto && user.profilePhoto.startsWith("/uploads/")) {
+  const oldPath = path.join(
+    __dirname,
+    "..",
+    "uploads",
+    path.basename(user.profilePhoto)
+  );
+
+  if (fs.existsSync(oldPath)) {
+    fs.unlinkSync(oldPath);
+  }
+}
+
 
       user.profilePhoto = `/uploads/${req.file.filename}`;
       await user.save();
