@@ -104,9 +104,18 @@ router.get("/my-tests", protect, async (req, res) => {
 /* ===============================
    MY TEST RESULTS (CONTEST WISE)
 =============================== */
+const mongoose = require("mongoose");
+
 router.get("/my-tests/:contestId", protect, async (req, res) => {
   try {
     const { contestId } = req.params;
+
+    // 🛑 validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(contestId)) {
+      return res.status(400).json({
+        msg: "Invalid contest ID"
+      });
+    }
 
     const results = await Result.find({
       user: req.user.id,
@@ -121,6 +130,7 @@ router.get("/my-tests/:contestId", protect, async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 });
+
 
 /* ===============================
    LEADERBOARD
