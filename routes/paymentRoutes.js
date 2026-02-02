@@ -23,12 +23,18 @@ const COIN_PRICES = {
 ========================= */
 router.post("/buy-coins", protect, async (req, res) => {
   try {
+    console.log("🔥 Buy coins called");
+    console.log("Coins:", req.body.coins);
+    console.log("KEY_ID exists:", !!process.env.RAZORPAY_KEY_ID);
+    console.log("SECRET exists:", !!process.env.RAZORPAY_SECRET);
+
     const { coins } = req.body;
 
-    if (!COIN_PRICES[coins])
+    if (!COIN_PRICES[coins]) {
       return res.status(400).json({ msg: "Invalid coin pack" });
+    }
 
-    const amount = COIN_PRICES[coins] * 100; // paise
+    const amount = COIN_PRICES[coins] * 100;
 
     const order = await razorpay.orders.create({
       amount,
@@ -36,14 +42,7 @@ router.post("/buy-coins", protect, async (req, res) => {
       receipt: `coin_${Date.now()}`
     });
 
-    await Transaction.create({
-      user: req.user.id,
-      amount: COIN_PRICES[coins],
-      coins,
-      type: "coin_purchase",
-      status: "pending",
-      razorpayOrderId: order.id
-    });
+    console.log("✅ Razorpay order created:", order.id);
 
     res.json({
       orderId: order.id,
@@ -51,10 +50,16 @@ router.post("/buy-coins", protect, async (req, res) => {
       coins
     });
   } catch (err) {
-    console.error("COIN ORDER ERROR:", err);
-    res.status(500).json({ msg: "Payment init failed" });
+    console.error("❌ COIN ORDER ERROR FULL:", err);
+    console.error("❌ ERROR MESSAGE:", err.message);
+
+    res.status(500).json({
+      msg: "Payment init failed",
+      error: err.message
+    });
   }
 });
+
 
 /* =========================
    VERIFY COIN PAYMENT
