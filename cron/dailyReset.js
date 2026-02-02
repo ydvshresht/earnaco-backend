@@ -2,8 +2,7 @@ const cron = require("node-cron");
 const Contest = require("../models/Contest");
 const Test = require("../models/Test");
 const Question = require("../models/Question");
-const Result = require("../models/Result");
-const User = require("../models/User");
+const { closeContest } = require("../services/contestService");
 
 /**
  * 🕛 DAILY RESET – 12:00 AM IST
@@ -15,38 +14,15 @@ cron.schedule(
 
     try {
       /* =========================
-         1️⃣ DISTRIBUTE PRIZE FOR OLD CONTEST
+         1️⃣ CLOSE YESTERDAY’S DAILY CONTEST
       ========================= */
-     const activeContest = await Contest.findOne({
-  status: "live",
-  isDaily: true,
-  prizeDistributed: false
-}).populate("test");
+      const activeDaily = await Contest.findOne({
+        status: "live",
+        isDaily: true
+      });
 
-
-      if (activeContest) {
-        const winnerResult = await Result.find({
-          contest: activeContest._id
-        })
-          .sort({ score: -1, timeTaken: 1 })
-          .limit(1)
-          .populate("user");
-
-        if (winnerResult.length) {
-          const winner = winnerResult[0].user;
-
-          // 🪙 CREDIT COINS
-          winner.wallet += activeContest.prizePool;
-          await winner.save();
-
-          activeContest.winner = winner._id;
-          activeContest.prizeDistributed = true;
-        }
-
-        activeContest.status = "completed";
-        await activeContest.save();
-
-        console.log("🏆 Contest closed:", activeContest._id);
+      if (activeDaily) {
+        await closeContest(activeDaily._id);
       }
 
       /* =========================
@@ -58,21 +34,24 @@ cron.schedule(
       );
 
       /* =========================
-         3️⃣ CHECK IF TODAY'S CONTEST EXISTS
+         3️⃣ CHECK IF TODAY’S CONTEST EXISTS
       ========================= */
       const today = new Date().toDateString();
 
-      const existing = await Test.findOne({
-        testName: `Daily Test - ${today}`
+      const existing = await Contest.findOne({
+        isDaily: true,
+        createdAt: {
+          $gte: new Date(new Date().setHours(0, 0, 0, 0))
+        }
       });
 
       if (existing) {
-        console.log("⚠️ Daily test already exists, skipping creation");
+        console.log("⚠️ Daily contest already exists, skipping creation");
         return;
       }
 
       /* =========================
-         4️⃣ FETCH RANDOM QUESTIONS
+         4️⃣ CREATE TODAY’S TEST
       ========================= */
       const questions = await Question.aggregate([
         { $sample: { size: 5 } }
@@ -83,43 +62,31 @@ cron.schedule(
         return;
       }
 
-      /* =========================
-         5️⃣ CREATE DAILY TEST
-      ========================= */
-      const newTest = await Test.create({
+      const test = await Test.create({
         testName: `Daily Test - ${today}`,
         duration: 10,
-        questions: questions.map(q => ({
-          question: q.question,
-          options: q.options,
-          correctAnswer: q.correctAnswer
-        })),
+        questions,
         isActive: true,
-        isDaily: true
+        isDaily: true,
+        isDraft: false
       });
 
       /* =========================
-         6️⃣ CREATE DAILY CONTEST (COINS)
+         5️⃣ CREATE TODAY’S CONTEST
       ========================= */
-      const newContest = await Contest.create({
-  test: newTest._id,
-  prizePool: 50,
-  entryFee: 5,
-  maxSpots: 100,
-  joinedUsers: [],
-  status: "live",          // ✅ SAME AS MANUAL
-  isDaily: true,           // 🔥 KEY DIFFERENCE
-  prizeDistributed: false
-});
+      await Contest.create({
+        test: test._id,
+        prizePool: 50,
+        entryFee: 5,
+        maxSpots: 100,
+        status: "live",
+        isDaily: true
+      });
 
-
-      console.log("✅ New daily contest created:", newContest._id);
-
+      console.log("✅ Daily contest reset done");
     } catch (err) {
       console.error("❌ Daily cron failed:", err);
     }
   },
-  {
-    timezone: "Asia/Kolkata"
-  }
+  { timezone: "Asia/Kolkata" }
 );

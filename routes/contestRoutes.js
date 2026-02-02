@@ -193,19 +193,33 @@ router.delete(
   adminOnly,
   async (req, res) => {
     const contest = await Contest.findById(req.params.contestId);
-    if (!contest) return res.status(404).json({ msg: "Contest not found" });
-
-    if (contest.joinedUsers.length > 0) {
-      return res.status(400).json({ msg: "Contest has entries" });
+    if (!contest) {
+      return res.status(404).json({ msg: "Contest not found" });
     }
-    if (contest.status === "live") {
-  return res.status(400).json({ msg: "Cannot delete live contest" });
-}
+
+    // ❌ Never delete completed contests
+    if (contest.status === "completed") {
+      return res.status(400).json({
+        msg: "Completed contests cannot be deleted"
+      });
+    }
+
+    // ❌ Cannot delete live contest with entries
+    if (
+      contest.status === "live" &&
+      contest.joinedUsers.length > 0
+    ) {
+      return res.status(400).json({
+        msg: "Contest has entries"
+      });
+    }
 
     await contest.deleteOne();
+
     res.json({ msg: "Contest deleted" });
   }
 );
+
 
 /* ===============================
    JOIN CONTEST (USER)
@@ -259,8 +273,37 @@ router.post("/join/:contestId", protect, async (req, res, next) => {
     next(err);
   }
 });
+router.get("/attempted/:contestId", protect, async (req, res) => {
+  const exists = await Result.exists({
+    user: req.user.id,
+    contest: req.params.contestId
+  });
+
+  res.json({ attempted: !!exists });
+});
 
 
+const { closeContest } = require("../services/contestService");
+
+router.post(
+  "/admin/:contestId/reset",
+  protect,
+  adminOnly,
+  async (req, res) => {
+    const contest = await Contest.findById(req.params.contestId);
+    if (!contest) {
+      return res.status(404).json({ msg: "Contest not found" });
+    }
+
+    if (contest.status !== "live") {
+      return res.status(400).json({ msg: "Contest not live" });
+    }
+
+    await closeContest(contest._id);
+
+    res.json({ msg: "Contest closed & reset successfully" });
+  }
+);
 
 
 /* ===============================
