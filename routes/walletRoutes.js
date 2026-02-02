@@ -1,8 +1,7 @@
 const express = require("express");
 const protect = require("../middleware/authMiddleware");
 const User = require("../models/User");
-const Transaction = require("../models/Transaction");
-
+const CoinTransaction = require("../models/CoinTransaction");
 const router = express.Router();
 
 /* ===============================
@@ -37,12 +36,13 @@ router.post("/watch-ad", protect, async (req, res) => {
         last.getFullYear() === now.getFullYear() &&
         last.getMonth() === now.getMonth() &&
         last.getDate() === now.getDate();
+if (isSameDay) {
+  return res.status(429).json({
+    msg: "You can watch only 1 ad per day",
+    coins: user.coins // 🔥 send current balance
+  });
+}
 
-      if (isSameDay) {
-        return res
-          .status(429)
-          .json({ msg: "You can watch only 1 ad per day" });
-      }
     }
 
     // ✅ Give coin
@@ -50,7 +50,7 @@ router.post("/watch-ad", protect, async (req, res) => {
     user.lastAdWatchedAt = now;
     await user.save();
 
-    await Transaction.create({
+    await CoinTransaction.create({
       user: user._id,
       type: "credit",
       coins: 1,
