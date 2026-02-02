@@ -2,8 +2,7 @@ const express = require("express");
 const protect = require("../middleware/authMiddleware");
 const upload = require("../middleware/upload");
 const User = require("../models/User");
-const fs = require("fs");
-const path = require("path");
+
 
 const router = express.Router();
 
@@ -58,38 +57,17 @@ router.put(
   async (req, res) => {
     try {
       if (!req.file) {
-        return res
-          .status(400)
-          .json({ msg: "No file uploaded" });
-      }
-
-      // validate image type
-      if (!req.file.mimetype.startsWith("image/")) {
-        return res
-          .status(400)
-          .json({ msg: "Only images allowed" });
+        return res.status(400).json({ msg: "No file uploaded" });
       }
 
       const user = await User.findById(req.user.id);
-      if (!user)
+      if (!user) {
         return res.status(404).json({ msg: "User not found" });
+      }
 
-      // delete old photo if exists
-      if (user.profilePhoto && user.profilePhoto.startsWith("/uploads/")) {
-  const oldPath = path.join(
-    __dirname,
-    "..",
-    "uploads",
-    path.basename(user.profilePhoto)
-  );
+      // ✅ CLOUDINARY URL
+      user.profilePhoto = req.file.path;
 
-  if (fs.existsSync(oldPath)) {
-    fs.unlinkSync(oldPath);
-  }
-}
-
-
-      user.profilePhoto = `/uploads/${req.file.filename}`;
       await user.save();
 
       res.json({
@@ -102,5 +80,6 @@ router.put(
     }
   }
 );
+
 
 module.exports = router;
