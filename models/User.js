@@ -42,7 +42,7 @@ signupBonusGiven: {
       lowercase: true
     },
 
-    mobile: number,
+    mobile: Sting,
 
     profilePhoto: String,
 
