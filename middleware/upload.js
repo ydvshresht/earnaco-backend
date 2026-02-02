@@ -10,4 +10,13 @@ const storage = new CloudinaryStorage({
   }
 });
 
-module.exports = multer({ storage });
+const fileFilter = (_, file, cb) => {
+  if (file.mimetype.startsWith("image/")) cb(null, true);
+  else cb(new Error("Only images allowed"));
+};
+
+module.exports = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB mobile safe
+});
