@@ -112,14 +112,16 @@ router.get(
 ================================ */
 router.get("/admin", protect, adminOnly, async (req, res, next) => {
   try {
-    const contests = await Contest.find()
-      .populate("test", "testName");
+    const contests = await Contest.find({
+      status: { $ne: "completed" } // 🔒 hide archived
+    }).populate("test", "testName");
 
     res.json(contests);
   } catch (err) {
     next(err);
   }
 });
+
 
 /* ===============================
    GET CONTEST FOR EDIT WIZARD
@@ -129,19 +131,35 @@ router.get(
   protect,
   adminOnly,
   async (req, res) => {
-    const contest = await Contest.findById(req.params.contestId)
-      .populate("test");
+    try {
+      const contest = await Contest.findById(req.params.contestId)
+        .populate("test");
 
-    if (!contest) {
-      return res.status(404).json({ msg: "Contest not found" });
+      if (!contest) {
+        return res.status(404).json({
+          msg: "Contest not found"
+        });
+      }
+
+      // 🔒 archived contest
+      if (contest.status === "completed") {
+        return res.status(400).json({
+          msg: "Completed contests are archived"
+        });
+      }
+
+      res.json({
+        contest,
+        editable: (contest.joinedUsers?.length || 0) === 0
+      });
+    } catch (err) {
+      console.error("EDIT CONTEST ERROR:", err);
+      res.status(500).json({ msg: "Server error" });
     }
-
-    res.json({
-      contest,
-      editable: contest.joinedUsers.length === 0
-    });
   }
 );
+
+
 
 /* ===============================
    UPDATE CONTEST SETTINGS
@@ -193,33 +211,42 @@ router.delete(
   protect,
   adminOnly,
   async (req, res) => {
-    const contest = await Contest.findById(req.params.contestId);
-    if (!contest) {
-      return res.status(404).json({ msg: "Contest not found" });
+    try {
+      const contest = await Contest.findById(req.params.contestId);
+
+      if (!contest) {
+        return res.status(404).json({
+          msg: "Contest not found"
+        });
+      }
+
+      // ❌ Never delete completed contests
+      if (contest.status === "completed") {
+        return res.status(400).json({
+          msg: "Completed contests cannot be deleted"
+        });
+      }
+
+      // ❌ Cannot delete live contest with entries
+      if (
+        contest.status === "live" &&
+        (contest.joinedUsers?.length || 0) > 0
+      ) {
+        return res.status(400).json({
+          msg: "Contest has entries"
+        });
+      }
+
+      await contest.deleteOne();
+
+      res.json({ msg: "Contest deleted" });
+    } catch (err) {
+      console.error("DELETE CONTEST ERROR:", err);
+      res.status(500).json({ msg: "Server error" });
     }
-
-    // ❌ Never delete completed contests
-    if (contest.status === "completed") {
-      return res.status(400).json({
-        msg: "Completed contests cannot be deleted"
-      });
-    }
-
-    // ❌ Cannot delete live contest with entries
-    if (
-      contest.status === "live" &&
-      contest.joinedUsers.length > 0
-    ) {
-      return res.status(400).json({
-        msg: "Contest has entries"
-      });
-    }
-
-    await contest.deleteOne();
-
-    res.json({ msg: "Contest deleted" });
   }
 );
+
 
 
 /* ===============================

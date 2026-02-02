@@ -47,6 +47,11 @@ isDaily: {
   type: Boolean,
   default: false
 },
+isArchived: {
+  type: Boolean,
+  default: false
+},
+
 winner: {
   type: mongoose.Schema.Types.ObjectId,
   ref: "User"
