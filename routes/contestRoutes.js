@@ -6,6 +6,7 @@ const Contest = require("../models/Contest");
 const Test = require("../models/Test");
 const User = require("../models/User");
 const CoinTransaction = require("../models/CoinTransaction");
+const Result = require("../models/Result");
 
 /* ===============================
    CREATE CONTEST (WIZARD STEP 3)
@@ -274,12 +275,12 @@ router.post("/join/:contestId", protect, async (req, res, next) => {
   }
 });
 router.get("/attempted/:contestId", protect, async (req, res) => {
-  const exists = await Result.exists({
+  const count = await Result.countDocuments({
     user: req.user.id,
     contest: req.params.contestId
   });
 
-  res.json({ attempted: !!exists });
+  res.json({ attempted: count > 0 });
 });
 
 
