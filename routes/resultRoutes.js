@@ -17,10 +17,10 @@ router.post("/submit", protect, async (req, res) => {
   try {
     const { testId, contestId, answers = [], timeTaken } = req.body;
 
-    // 🔒 Already attempted?
+    // 🔒 Already attempted (PER CONTEST)
     const alreadyAttempted = await Result.findOne({
       user: req.user.id,
-      test: testId
+      contest: contestId
     });
 
     if (alreadyAttempted) {
@@ -29,11 +29,19 @@ router.post("/submit", protect, async (req, res) => {
 
     // 📄 Validate test
     const test = await Test.findById(testId);
-    if (!test) return res.status(404).json({ msg: "Test not found" });
+    if (!test) {
+      return res.status(404).json({ msg: "Test not found" });
+    }
 
     // 🏁 Validate contest
     const contest = await Contest.findById(contestId);
-    if (!contest) return res.status(404).json({ msg: "Contest not found" });
+    if (!contest) {
+      return res.status(404).json({ msg: "Contest not found" });
+    }
+
+    if (contest.status !== "live") {
+      return res.status(403).json({ msg: "Contest not live" });
+    }
 
     // 🧮 Score calculation
     let score = 0;
@@ -55,6 +63,7 @@ router.post("/submit", protect, async (req, res) => {
       };
     });
 
+    // 🧾 Save result
     const result = await Result.create({
       user: req.user.id,
       test: testId,
@@ -76,6 +85,7 @@ router.post("/submit", protect, async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 });
+
 
 /* ===============================
    MY TEST RESULTS
