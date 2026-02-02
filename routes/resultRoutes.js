@@ -101,6 +101,26 @@ router.get("/my-tests", protect, async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 });
+/* ===============================
+   MY TEST RESULTS (CONTEST WISE)
+=============================== */
+router.get("/my-tests/:contestId", protect, async (req, res) => {
+  try {
+    const { contestId } = req.params;
+
+    const results = await Result.find({
+      user: req.user.id,
+      contest: contestId
+    })
+      .populate("test", "testName")
+      .sort({ createdAt: -1 });
+
+    res.json(results);
+  } catch (err) {
+    console.error("MY TEST (CONTEST) ERROR:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
 
 /* ===============================
    LEADERBOARD
@@ -203,16 +223,18 @@ router.post(
   }
 );
 
+
 /* ===============================
    CHECK ATTEMPT STATUS
 =============================== */
-router.get("/attempted/:testId", protect, async (req, res) => {
+router.get("/attempted/:contestId", protect, async (req, res) => {
   const attempted = await Result.exists({
     user: req.user.id,
-    test: req.params.testId
+    contest: req.params.contestId
   });
 
   res.json({ attempted: !!attempted });
 });
+
 
 module.exports = router;
