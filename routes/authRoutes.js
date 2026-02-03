@@ -206,6 +206,80 @@ router.post("/google-login", async (req, res) => {
     isNewUser
   });
 });
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email)
+      return res.status(400).json({ msg: "Email required" });
+
+    const user = await User.findOne({ email });
+    if (!user)
+      return res.status(404).json({ msg: "User not found" });
+
+    // 🔐 generate reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    user.resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 min
+
+    await user.save();
+
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+    await sendEmail(
+      user.email,
+      "Reset Your Earnaco Password",
+      `
+        <h3>Password Reset</h3>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetUrl}">${resetUrl}</a>
+        <p>This link expires in 15 minutes.</p>
+      `
+    );
+
+    res.json({ msg: "Password reset link sent to email" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Failed to send reset email" });
+  }
+});
+router.post("/reset-password/:token", async (req, res) => {
+  try {
+    const { password } = req.body;
+
+    if (!password)
+      return res.status(400).json({ msg: "Password required" });
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(req.params.token)
+      .digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpire: { $gt: Date.now() }
+    });
+
+    if (!user)
+      return res.status(400).json({ msg: "Invalid or expired token" });
+
+    user.password = await bcrypt.hash(password, 10);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+
+    await user.save();
+
+    res.json({ msg: "Password reset successful" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Password reset failed" });
+  }
+});
 
 /* =====================
    WATCH AD → +1 COIN
@@ -225,15 +299,6 @@ router.post("/watch-ad", protect, async (req, res) => {
 
   res.json({ msg: "+1 coin added" });
 });
-router.post("/forgot-password", async (req, res) => {
-  const { email } = req.body;
 
-  if (!email) {
-    return res.status(400).json({ msg: "Email required" });
-  }
-
-  // temporary response (to test)
-  res.json({ msg: "Password reset link sent (mock)" });
-});
 
 module.exports = router;
