@@ -38,14 +38,14 @@ router.post("/buy-coins", protect, async (req, res) => {
       receipt: `coin_${Date.now()}`
     });
 
-    // ✅ CREATE TRANSACTION HERE
     await Transaction.create({
-      user: req.user._id,
-      razorpayOrderId: order.id,
-      amount,
-      coins,
-      status: "pending"
-    });
+  user: req.user._id,          // ✅ REQUIRED
+  type: "buy_coins",           // ✅ REQUIRED
+  razorpayOrderId: order.id,
+  amount,
+  coins,
+  status: "pending"
+});
 
     res.json({
       orderId: order.id,
