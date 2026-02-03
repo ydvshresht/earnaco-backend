@@ -225,5 +225,15 @@ router.post("/watch-ad", protect, async (req, res) => {
 
   res.json({ msg: "+1 coin added" });
 });
+router.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ msg: "Email required" });
+  }
+
+  // temporary response (to test)
+  res.json({ msg: "Password reset link sent (mock)" });
+});
 
 module.exports = router;
