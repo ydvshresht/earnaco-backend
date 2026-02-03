@@ -2,7 +2,22 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
-    fullName: { type: String, required: true },
+    fullName: {
+  type: String,
+  required: function () {
+    return this.isVerified === true;
+  }
+},
+
+userId: {
+  type: String,
+  unique: true,
+  index: true,
+  required: function () {
+    return this.isVerified === true;
+  }
+},
+
 
     email: {
       type: String,
@@ -103,6 +118,8 @@ referralRewarded: {
   type: Boolean,
   default: false
 },
+resetPasswordToken: String,
+resetPasswordExpire: Date,
 
 
     emailToken: String,
