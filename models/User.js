@@ -26,12 +26,13 @@ userId: {
       lowercase: true
     },
 
-    password: {
+   password: {
   type: String,
   required: function () {
-    return !this.googleAuth; // required only if NOT Google user
+    return this.isVerified === true && this.googleAuth === false;
   }
 },
+
 googleAuth: {
   type: Boolean,
   default: false
