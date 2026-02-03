@@ -76,12 +76,6 @@ lastAdWatchedAt: {
   default: null
 },
 
-    userId: {
-      type: String,
-      unique: true,
-      required: true,
-      index: true
-    },
 
     ip: String,
     deviceId: String,
