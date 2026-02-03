@@ -18,7 +18,7 @@ type: {
         "coin_credit",
         "coin_debit",
         "deposit",
-        "withdraw"
+        "buy_coins"
       ],
       required: true
     },
