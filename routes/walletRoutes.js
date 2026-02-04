@@ -67,6 +67,24 @@ if (isSameDay) {
     res.status(500).json({ msg: "Server error" });
   }
 });
+// CHECK IF USER CAN WATCH AD TODAY
+router.get("/can-watch-ad", protect, async (req, res) => {
+  const user = await User.findById(req.user.id);
+
+  if (!user.lastAdWatchedAt) {
+    return res.json({ canWatch: true });
+  }
+
+  const last = new Date(user.lastAdWatchedAt);
+  const now = new Date();
+
+  const isSameDay =
+    last.getFullYear() === now.getFullYear() &&
+    last.getMonth() === now.getMonth() &&
+    last.getDate() === now.getDate();
+
+  res.json({ canWatch: !isSameDay });
+});
 
 
 module.exports = router;
