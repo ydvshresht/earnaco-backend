@@ -318,18 +318,28 @@ router.post(
   protect,
   adminOnly,
   async (req, res) => {
-    const contest = await Contest.findById(req.params.contestId);
-    if (!contest) {
-      return res.status(404).json({ msg: "Contest not found" });
+    try {
+      const contest = await Contest.findById(req.params.contestId);
+
+      if (!contest) {
+        return res.status(404).json({ msg: "Contest not found" });
+      }
+
+      if (contest.status !== "live") {
+        return res.status(400).json({ msg: "Contest not live" });
+      }
+
+     await closeContest(req.params.contestId);
+
+
+      res.json({ msg: "Contest closed & reset successfully" });
+    } catch (error) {
+      console.error("RESET CONTEST ERROR:", error);
+      res.status(500).json({
+        msg: "Failed to reset contest",
+        error: error.message
+      });
     }
-
-    if (contest.status !== "live") {
-      return res.status(400).json({ msg: "Contest not live" });
-    }
-
-    await closeContest(contest._id);
-
-    res.json({ msg: "Contest closed & reset successfully" });
   }
 );
 

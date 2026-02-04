@@ -1,41 +1,64 @@
+const mongoose = require("mongoose");
 const Contest = require("../models/Contest");
 const Result = require("../models/Result");
 const User = require("../models/User");
 const CoinTransaction = require("../models/CoinTransaction");
 
 async function closeContest(contestId) {
-  const contest = await Contest.findById(contestId);
-  if (!contest) return null;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (contest.status !== "live") return contest;
+  try {
+    const contest = await Contest.findById(contestId).session(session);
+    if (!contest) {
+      throw new Error("Contest not found");
+    }
 
-  // 🏆 Find winner
-  const winnerResult = await Result.find({ contest: contestId })
-    .sort({ score: -1, timeTaken: 1 })
-    .limit(1)
-    .populate("user");
+    if (contest.status !== "live") {
+      throw new Error("Contest not live");
+    }
 
-  if (winnerResult.length && !contest.prizeDistributed) {
-    const winner = winnerResult[0].user;
+    // 🏆 Find winner
+    const winnerResult = await Result.find({ contest: contestId })
+      .sort({ score: -1, timeTaken: 1 })
+      .limit(1)
+      .populate("user")
+      .session(session);
 
-    winner.coins += contest.prizePool;
-    await winner.save();
+    if (winnerResult.length && !contest.prizeDistributed) {
+      const winner = winnerResult[0].user;
 
-    await CoinTransaction.create({
-      user: winner._id,
-      type: "credit",
-      coins: contest.prizePool,
-      reason: "Contest prize"
-    });
+      await User.updateOne(
+        { _id: winner._id },
+        { $inc: { coins: contest.prizePool } },
+        { session }
+      );
 
-    contest.winner = winner._id;
-    contest.prizeDistributed = true;
+      await CoinTransaction.create(
+        [
+          {
+            user: winner._id,
+            type: "credit",
+            coins: contest.prizePool,
+            reason: "Contest prize"
+          }
+        ],
+        { session }
+      );
+    }
+
+    // 🧹 DELETE contest after completion
+    await Contest.deleteOne({ _id: contestId }).session(session);
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return true;
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
   }
-
-  contest.status = "completed";
-  await contest.save();
-
-  return contest;
 }
 
 module.exports = { closeContest };
