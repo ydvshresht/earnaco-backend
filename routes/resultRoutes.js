@@ -137,12 +137,6 @@ router.get("/my-tests/:contestId", protect, async (req, res) => {
 =============================== */
 router.get("/leaderboard/:testId", protect, async (req, res) => {
   try {
-    if (!isLeaderboardOpen()) {
-      return res.status(403).json({
-        msg: "Leaderboard opens at 7 PM"
-      });
-    }
-
     const leaderboard = await Result.find({
       test: req.params.testId
     })
@@ -155,7 +149,6 @@ router.get("/leaderboard/:testId", protect, async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 });
-
 /* ===============================
    ADMIN ANALYTICS (TEST)
 =============================== */

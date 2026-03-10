@@ -3,7 +3,7 @@ const Contest = require("../models/Contest");
 const Test = require("../models/Test");
 const Question = require("../models/Question");
 const { closeContest } = require("../services/contestService");
-
+const Transaction = require("../models/Transaction");
 /**
  * 🕛 DAILY RESET – 12:00 AM IST
  */
@@ -24,7 +24,17 @@ cron.schedule(
       if (activeDaily) {
         await closeContest(activeDaily._id);
       }
+/* =========================
+   🪙 RESET DAILY TRANSACTIONS
+========================= */
 
+await Transaction.deleteMany({
+  createdAt: {
+    $lt: new Date(new Date().setHours(0, 0, 0, 0))
+  }
+});
+
+console.log("🪙 Old transactions cleared");
       /* =========================
          2️⃣ DISABLE OLD DAILY TESTS
       ========================= */
@@ -88,5 +98,6 @@ cron.schedule(
       console.error("❌ Daily cron failed:", err);
     }
   },
+  
   { timezone: "Asia/Kolkata" }
 );
